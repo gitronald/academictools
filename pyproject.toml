@@ -36,7 +36,7 @@ qr = "tools.utils.qr:main"
 
 # repotemplates release stamp, set by init.sh and install-template; inert to consumers.
 [tool.repotemplates]
-version = "0.11.7"
+version = "0.15.0"
 
 [project.optional-dependencies]
 qr = ["qrcode[pil]>=8.2,<8.3"]
