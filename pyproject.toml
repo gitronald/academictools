@@ -1,6 +1,6 @@
 [project]
 name = "academictools"
-version = "0.8.3"
+version = "0.8.4a0"
 description = "Tools for academic data analysis: data IO, dataframe summaries, statistical tests, and paper-ready figures."
 readme = "README.md"
 requires-python = ">=3.14"
