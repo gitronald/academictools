@@ -7,4 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- Maintenance: upgraded the repo tooling to repotemplates 0.15.0, which renames the template stamp, updates the Dependabot setup link, and adds a Python matrix to the test workflow. No package code changes.
+
 [Unreleased]: https://github.com/gitronald/academictools/commits/main
