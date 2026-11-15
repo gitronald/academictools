@@ -133,6 +133,11 @@ types for callers.
   - Step 8: `tests/test_imports.py` imports each module in a fresh interpreter and resolves every `__all__` name; the probe was checked to report `pandas` when pandas is loaded.
   - Step 9: README, CHANGELOG `[Unreleased]`, and `.claude/CLAUDE.md` updated. The minor release is not cut: it follows the merge, from dev.
 - **2026-11-15T15:06:09-08:00** — Implemented: 11 commits ahead of `dev`.
+- **2026-11-15T15:15:10-08:00** — Review gate (medium, /code-review): 8 findings; 6 fixed in 05c29f0, each with a regression test; posted to PR #5.
+  - Review follow-up, actioned: `_complete` now drops float NaN rows as well as nulls (histplot and regplot raised on NaN, and box statistics ran over NaN); `enhanced_lineplot` uses the shared chart helpers, so numeric hue levels sort as in the other helpers and in `sns.lineplot` before; `_levels` follows a `pl.Enum`'s declared categories and merges its two identical sort branches; `_single_color` replaces five copies of the default-color expression; `_dodge_offsets` returns the element width with the offsets.
+  - Review follow-up, conscious no-ops: per-(category, hue) filters in `_categorical` and per-cell heatmap luminance (marginal at plot sizes, invasive to change).
+  - Rejected in verification: a vectorized bootstrap, the unused text-mode `ncols` (already unused on dev), `strip_kws` (an existing seaborn preset), and pointplot capsize units (match seaborn).
+  - Gate after fixes: ruff, ruff format --check, pyrefly strict, and pytest all pass (465 tests, 98% coverage).
 
 ## Handoff
 
