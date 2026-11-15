@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-15
+
 ### Added
 
 - Plotting helpers on matplotlib and polars, replacing seaborn's common plot types: `barplot` and `pointplot` (estimate per category with a seeded bootstrap confidence interval), `regplot` (OLS line with a bootstrap band), `scatterplot`, `histplot`, `boxplot`, `heatmap`, `swarmplot`, and `boxenplot`. Each takes a polars DataFrame and column names, draws on a given `Axes`, and supports `hue` with an order and a palette where the plot has groups.
