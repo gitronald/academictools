@@ -5,7 +5,6 @@ from collections import OrderedDict
 import numpy as np
 import polars as pl
 import scipy.stats as st
-from statsmodels.stats.contingency_tables import mcnemar
 
 from tools.dataframes.describe import describe
 from tools.utils.printing import print_line
@@ -163,8 +162,45 @@ def nonparametric_sig_test(
     return out_data
 
 
+def _mcnemar(
+    table: list[list[int]], exact: bool = True, correction: bool = True
+) -> tuple[float, float]:
+    """McNemar's test of homogeneity on a 2x2 contingency table.
+
+    Matches ``statsmodels.stats.contingency_tables.mcnemar``.
+
+    Args:
+        table: 2x2 table of paired counts; the off-diagonal cells are the
+            discordant pairs
+        exact: Use the exact binomial test (the default) instead of the
+            chi-square approximation
+        correction: Apply the continuity correction to the chi-square form
+            (ignored when ``exact`` is True)
+
+    Returns:
+        Tuple of (statistic, pvalue). The statistic is the smaller discordant
+        count for the exact test and the chi-square statistic otherwise; with
+        no discordant pairs the exact p-value is 1 and the chi-square form is
+        undefined (NaN).
+    """
+    b, c = int(table[0][1]), int(table[1][0])
+    n = b + c
+    if exact:
+        statistic = min(b, c)
+        pvalue = 1.0 if n == 0 else st.binomtest(statistic, n, 0.5).pvalue
+        return float(statistic), min(float(pvalue), 1.0)
+    if n == 0:
+        return float("nan"), float("nan")
+    chi2 = (abs(b - c) - int(correction)) ** 2 / n
+    return float(chi2), float(st.chi2.sf(chi2, 1))
+
+
 def mcnemar_test(
-    data: pl.DataFrame, group1: str, group2: str
+    data: pl.DataFrame,
+    group1: str,
+    group2: str,
+    exact: bool = True,
+    correction: bool = True,
 ) -> tuple[pl.DataFrame, dict[str, float]]:
     """Run McNemar's test for paired nominal data.
 
@@ -172,11 +208,16 @@ def mcnemar_test(
         data: pl.DataFrame containing the data
         group1: First binary column name
         group2: Second binary column name
+        exact: Use the exact binomial test (the default) instead of the
+            chi-square approximation
+        correction: Apply the continuity correction to the chi-square form
 
     Returns:
         Tuple of (contingency DataFrame, dict with 'pvalue' and 'chi2' keys).
         The contingency table is a polars DataFrame whose first column holds the
         ``group1`` values (rows); the ``group2`` values are the count columns.
+        'chi2' holds the test statistic: the smaller discordant count for the
+        exact test, the chi-square statistic otherwise (see ``_mcnemar``).
     """
     categories = sorted(
         set(data[group1].drop_nulls().to_list())
@@ -209,12 +250,8 @@ def mcnemar_test(
             },
         }
     )
-    stats = mcnemar(counts)
-    # mcnemar returns an untyped statsmodels _Bunch exposing .pvalue/.statistic
-    output: dict[str, float] = {}
-    output["pvalue"] = stats.pvalue  # type: ignore[attr-defined]
-    output["chi2"] = stats.statistic  # type: ignore[attr-defined]
-    return xtab, output
+    statistic, pvalue = _mcnemar(counts, exact=exact, correction=correction)
+    return xtab, {"pvalue": pvalue, "chi2": statistic}
 
 
 def get_modal_category(df: pl.DataFrame, group: str, category: str) -> pl.DataFrame:

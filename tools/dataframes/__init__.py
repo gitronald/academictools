@@ -14,7 +14,6 @@ from .display import (
     display_tables,
     display_tables_html,
     display_tables_text,
-    pd_options,
     set_css,
 )
 from .inspection import (
@@ -65,5 +64,4 @@ __all__ = [
     "display_tables_text",
     "display_tables_html",
     "set_css",
-    "pd_options",
 ]

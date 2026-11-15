@@ -34,10 +34,38 @@ uv sync
 
 - `tools.io` - Data loading/saving (CSV, TSV, Parquet, Feather, JSONL), file utilities, DuckDB queries
 - `tools.dataframes` - Frequency tables, descriptive stats, inspection, reshaping, dates, sessions, display
-- `tools.plots` - Matplotlib/seaborn plotting with academic paper styling (6.52" width)
+- `tools.plots` - Matplotlib plotting with academic paper styling (6.52" width): seaborn-style helpers for polars frames, palettes, and axis formatting
 - `tools.stats` - Statistical tests (parametric and nonparametric)
 - `tools.utils` - Printing, timing, text processing, Jupyter utilities
 - `tools.functions` - Convenience module re-exporting all subpackage functions
+
+## Plotting
+
+`tools.plots` draws seaborn's common plot types with matplotlib, straight from
+polars frames; seaborn and pandas are not dependencies. Each helper takes a
+frame and column names, draws on an `Axes` (the current one by default), and
+returns it:
+
+```python
+import matplotlib.pyplot as plt
+from tools import plots
+
+fig, ax = plt.subplots()
+plots.barplot(df, "condition", "score", hue="group", seed=0, ax=ax)
+```
+
+| Helper | Draws |
+|---|---|
+| `barplot`, `pointplot` | An estimate per category (mean by default) with a bootstrap confidence interval |
+| `regplot` | Scatter with an OLS line and a bootstrap confidence band |
+| `scatterplot`, `histplot`, `boxplot` | Grouped scatter, histogram, and box plots |
+| `heatmap` | A matrix with a colormap, a colorbar, and formatted cell annotations |
+| `swarmplot`, `boxenplot` | Beeswarm and letter-value plots, ported from seaborn so layouts match |
+
+Bootstrap intervals are seeded (`seed=`) so they are reproducible; they will
+not match seaborn's draws. `color_palette(name, n)` samples a matplotlib
+colormap as seaborn does, and `TICKS_STYLE` and `WHITEGRID_STYLE` are rcParams
+equivalents of seaborn's styles (`plt.rcParams.update(plots.TICKS_STYLE)`).
 
 ## Versioning
 

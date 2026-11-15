@@ -5,10 +5,11 @@ from typing import Any
 
 import matplotlib.pyplot as plt
 import polars as pl
-import seaborn as sns
 from matplotlib.axes import Axes
 from matplotlib.colors import LogNorm
 from matplotlib.figure import Figure
+
+from tools.plots.charts import heatmap
 
 
 def get_heatmap_data(
@@ -87,7 +88,7 @@ def plot_heatmap(
         data_max: Maximum data value for colorbar range
         log_scale: Whether to apply log normalization to colors
         cbar: Whether to show the colorbar
-        annot_kws: Annotation keyword arguments for seaborn heatmap
+        annot_kws: Annotation text keyword arguments (None for no annotations)
         fmt: Format string for cell annotations
         square: Whether to force square cells
         figsize: Figure size as (width, height) tuple
@@ -97,9 +98,6 @@ def plot_heatmap(
         Tuple of (figure, axes) objects
     """
     index_col = index_col or plot_data.columns[0]
-    yticklabels = plot_data[index_col].to_list()
-    xticklabels = [c for c in plot_data.columns if c != index_col]
-    matrix = plot_data.drop(index_col).to_numpy()
     log_norm = None
     cbar_ticks = None
     if log_scale:
@@ -127,11 +125,12 @@ def plot_heatmap(
         cbar_kws = None
 
     # Plot
-    sns.heatmap(
-        matrix,
+    heatmap(
+        plot_data,
+        index_col=index_col,
         ax=ax,
         cmap="binary",
-        annot=True if annot_kws else False,
+        annot=bool(annot_kws),
         fmt=fmt,
         annot_kws=annot_kws,
         linewidths=0.5,
@@ -142,8 +141,6 @@ def plot_heatmap(
         vmin=vmin,
         vmax=vmax,
         square=square,
-        xticklabels=xticklabels,
-        yticklabels=yticklabels,
     )
 
     # Ticks and labels

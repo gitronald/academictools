@@ -716,10 +716,20 @@ class TestDisplayTables:
         out = capsys.readouterr().out
         assert "First" in out
         assert "Second" in out
+        # polars renders the frame itself: shape line and dtype row
+        assert "shape: (2, 1)" in out
+        assert "i64" in out
 
     def test_text_without_titles(self, capsys):
         display_tables_text([pl.DataFrame({"colname": [1]})])
         assert "colname" in capsys.readouterr().out
+
+    def test_text_prints_every_row(self, capsys):
+        # polars truncates long frames by default; display prints them in full
+        display_tables_text([pl.DataFrame({"n": list(range(40))})])
+        out = capsys.readouterr().out
+        assert "…" not in out
+        assert "│ 39" in out
 
     def test_dispatch_uses_text_outside_notebook(self, capsys):
         # not in a notebook -> display_tables routes to the text path
@@ -728,21 +738,37 @@ class TestDisplayTables:
 
     def test_dispatch_uses_html_in_notebook(self, monkeypatch):
         # force the notebook branch -> display_tables routes to the HTML path
+        shown = []
         monkeypatch.setattr(
             "tools.dataframes.display.in_jupyter_notebook", lambda: True
         )
+        monkeypatch.setattr("tools.dataframes.display.display", shown.append)
         display_tables([pl.DataFrame({"xcol": [1, 2]})])
+        assert "<th>xcol</th>" in shown[0].data
 
-    def test_html_with_titles_runs(self):
-        # smoke: builds the side-by-side HTML and displays it without raising
+    def test_html_with_titles(self, monkeypatch):
+        shown = []
+        monkeypatch.setattr("tools.dataframes.display.display", shown.append)
         display_tables_html(
             [pl.DataFrame({"a": [1]}), pl.DataFrame({"b": [2]})],
-            titles=["A", "B"],
+            titles=["A & co", "B"],
             ncols=2,
         )
+        html = shown[0].data
+        # titles head each table, escaped; both frames render via polars
+        assert "A &amp; co</div>" in html
+        assert "B</div>" in html
+        assert "<th>a</th>" in html
+        assert "<th>b</th>" in html
+        assert html.count('class="dataframe"') == 2
 
-    def test_html_without_titles_runs(self):
+    def test_html_without_titles(self, monkeypatch):
+        shown = []
+        monkeypatch.setattr("tools.dataframes.display.display", shown.append)
         display_tables_html([pl.DataFrame({"a": [1, 2]})])
+        html = shown[0].data
+        assert "<th>a</th>" in html
+        assert "font-weight:bold" not in html
 
     def test_set_css_runs(self):
         set_css()

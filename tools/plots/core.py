@@ -1,42 +1,35 @@
 """Core plotting functions with polars support."""
 
 import datetime
-import warnings
+from collections.abc import Sequence
 from typing import Any
 
+import numpy as np
 import polars as pl
-import seaborn as sns
-from matplotlib import MatplotlibDeprecationWarning
+from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
-
-def smart_plot_data(df: pl.DataFrame, **kwargs: Any) -> dict[str, Any]:
-    """Prepare data for plotting.
-
-    Seaborn reads polars frames only through the dataframe-interchange
-    protocol, which polars 2 removed, so the frame is converted to pandas.
-
-    Args:
-        df: Polars DataFrame to prepare for plotting
-        **kwargs: Additional plotting arguments
-
-    Returns:
-        Dictionary with 'data' key containing the pandas DataFrame and any
-        additional kwargs
-    """
-    result: dict[str, Any] = {"data": df.to_pandas()}
-    result.update(kwargs)
-    return result
+from tools.plots.charts import (
+    _complete,
+    _get_ax,
+    _levels,
+    _single_color,
+    boxplot,
+    scatterplot,
+)
+from tools.plots.estimate import ErrorBar, Estimator, estimate_interval
+from tools.plots.palettes import Palette, resolve_colors
 
 
-def enhanced_scatterplot(df: pl.DataFrame, x: str, y: str, **kwargs: Any) -> Any:
-    """Create scatter plot with automatic polars support.
+def enhanced_scatterplot(df: pl.DataFrame, x: str, y: str, **kwargs: Any) -> Axes:
+    """Create a scatter plot from a polars DataFrame.
 
     Args:
         df: Polars DataFrame containing the data
         x: Column name for x-axis
         y: Column name for y-axis
-        **kwargs: Additional arguments passed to seaborn.scatterplot
+        **kwargs: Passed to ``tools.plots.scatterplot`` (``hue``, ``palette``,
+            ``ax``, or ``Axes.scatter`` keywords)
 
     Returns:
         matplotlib Axes object
@@ -45,45 +38,107 @@ def enhanced_scatterplot(df: pl.DataFrame, x: str, y: str, **kwargs: Any) -> Any
         >>> df = pl.DataFrame({'x': [1, 2, 3], 'y': [4, 5, 6]})
         >>> enhanced_scatterplot(df, 'x', 'y')
     """
-    plot_data = smart_plot_data(df, x=x, y=y, **kwargs)
-    return sns.scatterplot(**plot_data)
+    return scatterplot(df, x, y, **kwargs)
 
 
-def enhanced_lineplot(df: pl.DataFrame, x: str, y: str, **kwargs: Any) -> Any:
-    """Create line plot with automatic polars support.
+def enhanced_lineplot(
+    df: pl.DataFrame,
+    x: str,
+    y: str,
+    *,
+    hue: str | None = None,
+    hue_order: Sequence[Any] | None = None,
+    palette: Palette = None,
+    color: Any = None,
+    estimator: Estimator = "mean",
+    errorbar: ErrorBar = ("ci", 95),
+    n_boot: int = 1000,
+    seed: int | None = None,
+    legend: bool = True,
+    ax: Axes | None = None,
+    **kwargs: Any,
+) -> Axes:
+    """Create a line plot of ``y`` over sorted ``x``, one line per ``hue`` level.
+
+    Repeated ``x`` values are aggregated with ``estimator``, and the interval
+    from ``errorbar`` is drawn as a shaded band, as seaborn's ``lineplot`` does.
 
     Args:
         df: Polars DataFrame containing the data
         x: Column name for x-axis
         y: Column name for y-axis
-        **kwargs: Additional arguments passed to seaborn.lineplot
+        hue: Optional grouping column, one line per level
+        hue_order: Hue level order
+        palette: Hue colors
+        color: Line color without hue
+        estimator: Statistic per x value: a numpy reduction name or a callable
+        errorbar: Interval spec (see ``estimate_interval``); None for no band
+        n_boot: Bootstrap resamples for a ``"ci"`` interval
+        seed: Seed for the bootstrap
+        legend: Add a legend for ``hue``
+        ax: Axes to draw on (default: current axes)
+        **kwargs: Passed to ``Axes.plot``
 
     Returns:
         matplotlib Axes object
     """
-    plot_data = smart_plot_data(df, x=x, y=y, **kwargs)
-    return sns.lineplot(**plot_data)
+    ax = _get_ax(ax)
+    data = _complete(df, x, y, hue)
+    if hue is None:
+        levels: list[Any] = [None]
+        colors = [_single_color(color)]
+    else:
+        levels = _levels(data.get_column(hue), hue_order)
+        colors = resolve_colors(levels, palette)
+    for level, rgb in zip(levels, colors):
+        part = data if hue is None else data.filter(pl.col(hue) == level)
+        xs: list[Any] = []
+        est: list[float] = []
+        low: list[float] = []
+        high: list[float] = []
+        for key, sub in part.group_by(x):
+            xs.append(key[0])
+            values = sub.get_column(y).cast(pl.Float64).to_numpy()
+            e, lo, hi = estimate_interval(values, estimator, errorbar, n_boot, seed)
+            est.append(e)
+            low.append(lo)
+            high.append(hi)
+        order = np.argsort(np.asarray(xs))
+        xs_sorted = np.asarray(xs)[order]
+        line_kws: dict[str, Any] = {"color": rgb, **kwargs}
+        if level is not None:
+            line_kws.setdefault("label", str(level))
+        ax.plot(xs_sorted, np.asarray(est)[order], **line_kws)
+        if errorbar is not None:
+            ax.fill_between(
+                xs_sorted,
+                np.asarray(low)[order],
+                np.asarray(high)[order],
+                color=rgb,
+                alpha=0.2,
+                linewidth=0,
+            )
+    if legend and hue is not None:
+        ax.legend(title=hue)
+    ax.set_xlabel(x)
+    ax.set_ylabel(y)
+    return ax
 
 
-def enhanced_boxplot(df: pl.DataFrame, x: str, y: str, **kwargs: Any) -> Any:
-    """Create box plot with automatic polars support.
+def enhanced_boxplot(df: pl.DataFrame, x: str, y: str, **kwargs: Any) -> Axes:
+    """Create a box plot from a polars DataFrame.
 
     Args:
         df: Polars DataFrame containing the data
         x: Column name for x-axis (categorical)
         y: Column name for y-axis (numeric)
-        **kwargs: Additional arguments passed to seaborn.boxplot
+        **kwargs: Passed to ``tools.plots.boxplot`` (``hue``, ``order``,
+            ``palette``, ``ax``, ...)
 
     Returns:
         matplotlib Axes object
     """
-    plot_data = smart_plot_data(df, x=x, y=y, **kwargs)
-    # seaborn 0.13.2 always passes `vert=` to Axes.bxp, deprecated in matplotlib 3.11
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "ignore", message="vert: bool", category=MatplotlibDeprecationWarning
-        )
-        return sns.boxplot(**plot_data)
+    return boxplot(df, x, y, **kwargs)
 
 
 def darken_hex_color(hex_color: str, factor: float = 0.5) -> str:

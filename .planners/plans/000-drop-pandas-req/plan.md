@@ -1,11 +1,11 @@
 ---
 id: 0
 slug: drop-pandas-req
-status: active
+status: done
 branch: feature/000-drop-pandas-req
 created: 2026-11-15T14:40:34-08:00
-concluded:
-pr:
+concluded: 2026-11-15T15:14:49-08:00
+pr: https://github.com/gitronald/academictools/pull/5
 ---
 
 # Drop pandas from the package requirements
@@ -123,10 +123,26 @@ types for callers.
   - Base: `dev` at `48e6aa9`
   - Worktree: `.worktrees/000-drop-pandas-req`
   - PR: pending
+- **2026-11-15T14:53:10-08:00** — PR opened: https://github.com/gitronald/academictools/pull/5
+- **2026-11-15T15:05:57-08:00** — Implemented steps 1-9 on the feature branch; final checks at 184464c (base dev unchanged): ruff and pyrefly strict clean, 454 tests pass at 98% coverage, `uv build` succeeds.
+  - Step 3: fixtures recorded once from a throwaway `uv run --no-project --with` environment (seaborn 0.13.2, statsmodels 0.15.0, matplotlib 3.11.2, numpy 2.5.4, scipy 1.18.1) by `tests/fixtures/record_reference.py`; the dev group carries neither package. Beeswarm placement depends on the axes transform, so it is recorded both at algorithm level (point space) and as full swarm plots on a fixed 4x3 in, 100 dpi figure.
+  - Step 4: `_mcnemar` (scipy `binomtest` / `chi2`) and `z_test` (pooled variance, `norm`) match every recorded statsmodels case; `mcnemar_test` gained `exact` and `correction`.
+  - Step 5: new modules `tools/plots/charts.py`, `palettes.py`, `estimate.py`, and `_seaborn_port.py` (keeps seaborn's BSD notice). Swarm offsets match seaborn exactly (zero difference) in both orientations; letter values and boxen widths match for every `k_depth` and `width_method`. Helper keywords follow the existing presets in `settings.py`, so `box_kws`, `pointplot_kws`, and `heatmap_kws_proportion` work with the helpers; `strip_kws` stays a seaborn stripplot preset, since strip plots are out of scope.
+  - Step 5 deviations: seaborn's `ticks`/`whitegrid` styles set `image.cmap` to its own `rocket` map, which matplotlib does not ship, so the rcParams copies leave that key out. Boxen fill colors use a plain RGB tint ramp rather than seaborn's HUSL light palette, so box colors differ slightly while depths match. seaborn's `color_palette` cycles a qualitative map past its size, which the port does too.
+  - Step 7: pyarrow stays. duckdb's `relation.pl()` in `tools/io/sql.py` converts through pyarrow (12 SQL tests failed with it removed), which is the plan's "unless something else needs it" case; a comment in `pyproject.toml` says why. Re-locking moved pyarrow 26.0.0 to 26.0.1 within its pin. `uv.lock` has no pandas, seaborn, or statsmodels entries, and `uv tree --invert --package pandas` lists nothing.
+  - Step 8: `tests/test_imports.py` imports each module in a fresh interpreter and resolves every `__all__` name; the probe was checked to report `pandas` when pandas is loaded.
+  - Step 9: README, CHANGELOG `[Unreleased]`, and `.claude/CLAUDE.md` updated. The minor release is not cut: it follows the merge, from dev.
+- **2026-11-15T15:06:09-08:00** — Implemented: 11 commits ahead of `dev`.
+- **2026-11-15T15:15:10-08:00** — Review gate (medium, /code-review): 8 findings; 6 fixed in 05c29f0, each with a regression test; posted to PR #5.
+  - Review follow-up, actioned: `_complete` now drops float NaN rows as well as nulls (histplot and regplot raised on NaN, and box statistics ran over NaN); `enhanced_lineplot` uses the shared chart helpers, so numeric hue levels sort as in the other helpers and in `sns.lineplot` before; `_levels` follows a `pl.Enum`'s declared categories and merges its two identical sort branches; `_single_color` replaces five copies of the default-color expression; `_dodge_offsets` returns the element width with the offsets.
+  - Review follow-up, conscious no-ops: per-(category, hue) filters in `_categorical` and per-cell heatmap luminance (marginal at plot sizes, invasive to change).
+  - Rejected in verification: a vectorized bootstrap, the unused text-mode `ncols` (already unused on dev), `strip_kws` (an existing seaborn preset), and pointplot capsize units (match seaborn).
+  - Gate after fixes: ruff, ruff format --check, pyrefly strict, and pytest all pass (465 tests, 98% coverage).
 
 ## Handoff
 
-State: drafted 2026-11-15; nothing implemented.
+State: closed 2026-11-15. Steps 1-9 implemented, the review gate passed
+(fixes in 05c29f0), and PR #5 merged into `dev`.
 
 Open questions: none.
 
@@ -137,6 +153,28 @@ Settled (2026-11-15):
    optional (steps 5-6), so the question of extra names is moot.
 3. The beeswarm and letter-value plots keep seaborn's layouts exactly,
    through a port of seaborn's algorithms, not a substitute plot type.
+4. pyarrow stays a requirement: duckdb's `relation.pl()` needs it (step 7).
 
-Next: step 3 (record the reference outputs), then steps 1-2 and 4-6 in any
-order, then 7-9.
+Not verified: the helpers' look against seaborn beyond the fixtures (a
+rendered gallery was checked by eye only); boxen fill colors are a plain tint
+ramp, not seaborn's HUSL palette; dodged swarm plots (the fixtures cover
+swarms without hue only, and the beeswarm width is not narrowed per hue level).
+
+Next: the minor release with stanza from `dev` (step 9's release, owner's
+call), whose changelog `[Unreleased]` is already filled. Nothing else remains
+in this plan.
+
+## Retrospective
+
+- Recording seaborn and statsmodels outputs first, from a throwaway
+  environment, let the ports be checked to zero difference without either
+  package ever entering the dev group; worth repeating for any future port.
+- The plan's "unless something else needs it" hedge on pyarrow paid off:
+  duckdb's `relation.pl()` needs it, which only the SQL tests showed.
+- Review caught what the fixtures could not: the fixtures test algorithms on
+  clean arrays, so NaN handling and level ordering, which seaborn got from
+  pandas for free, went missing until the review. Edge-case tests for missing
+  values and categorical order belong in the port's first pass.
+- `enhanced_lineplot` was written beside `charts.py` rather than on it, and
+  drifted on hue order. A wrapper should go through the shared helpers from the
+  start.
