@@ -6,7 +6,6 @@ from typing import Any, cast
 import numpy as np
 import polars as pl
 import scipy.stats as st
-from statsmodels.stats.proportion import proportions_ztest
 
 
 def paired_ttest(
@@ -59,20 +58,42 @@ def paired_ttest(
 def z_test(
     count: list[int], nobs: list[int], value: float = 0, alternative: str = "two-sided"
 ) -> dict[str, float]:
-    """Two-proportion z-test using statsmodels.
+    """Two-proportion z-test with a pooled variance.
+
+    Matches ``statsmodels.stats.proportion.proportions_ztest`` for two samples:
+    the difference ``p1 - p2 - value`` over the standard error from the pooled
+    proportion.
 
     Args:
-        count: Number of successes for each sample (list/array of length 2)
-        nobs: Number of observations for each sample (list/array of length 2)
+        count: Number of successes for each sample (length 2)
+        nobs: Number of observations for each sample (length 2)
         value: Null hypothesis difference in proportions (default: 0)
-        alternative: 'two-sided', 'larger', or 'smaller'
+        alternative: 'two-sided', 'larger' (p1 - p2 > value), or 'smaller'
 
     Returns:
         dict with z statistic and p value
+
+    Raises:
+        ValueError: If count or nobs is not length 2, or alternative is unknown
     """
-    # proportions_ztest is untyped (returns ndarray | Unknown); cast the scalars
-    z, p = proportions_ztest(count, nobs, value, alternative=alternative)
-    return {"z": cast(float, z), "p": cast(float, p)}
+    if len(count) != 2 or len(nobs) != 2:
+        raise ValueError("z_test takes exactly two samples")
+    if alternative not in ("two-sided", "larger", "smaller"):
+        raise ValueError(
+            "alternative must be 'two-sided', 'larger', or 'smaller', "
+            f"got {alternative!r}"
+        )
+    p1, p2 = count[0] / nobs[0], count[1] / nobs[1]
+    pooled = sum(count) / sum(nobs)
+    std = np.sqrt(pooled * (1 - pooled) * (1 / nobs[0] + 1 / nobs[1]))
+    z = float((p1 - p2 - value) / std)
+    if alternative == "two-sided":
+        p = 2 * st.norm.sf(abs(z))
+    elif alternative == "larger":
+        p = st.norm.sf(z)
+    else:
+        p = st.norm.cdf(z)
+    return {"z": z, "p": float(p)}
 
 
 def pearsonr_ci(
