@@ -7,6 +7,7 @@ and HTML formats, using polars' own rendering.
 from html import escape
 
 import polars as pl
+from IPython.core.formatters import HTMLFormatter
 from IPython.display import HTML, display
 
 from tools.utils.jupyter import in_jupyter_notebook
@@ -87,7 +88,7 @@ def display_tables_text(
 def _html_table(df: pl.DataFrame, title: str | None = None) -> str:
     """Render one polars frame as HTML, with an optional bold title above it."""
     with _table_config():
-        table = df._repr_html_()
+        table = HTMLFormatter()(df)
     if title is None:
         return table
     heading = f"<div style='font-weight:bold;text-align:left'>{escape(title)}</div>"
