@@ -114,6 +114,11 @@ types for callers.
   grids, the objects interface).
 - New helpers beyond what the steps need.
 
+## Log
+
+- **2026-11-15T14:50:01-08:00** — Revised the steps: seaborn and statsmodels are reimplemented (matplotlib, scipy) rather than moved behind extras, and the plotting helpers that replace seaborn's plot types are added here.
+  - The beeswarm and letter-value plots port seaborn's algorithms so layouts match exactly; reference outputs are recorded as fixtures first.
+
 ## Handoff
 
 State: drafted 2026-11-15; nothing implemented.
