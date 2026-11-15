@@ -1,8 +1,8 @@
 ---
 id: 0
 slug: drop-pandas-req
-status: draft
-branch:
+status: active
+branch: feature/000-drop-pandas-req
 created: 2026-11-15T14:40:34-08:00
 concluded:
 pr:
@@ -118,6 +118,11 @@ types for callers.
 
 - **2026-11-15T14:50:01-08:00** — Revised the steps: seaborn and statsmodels are reimplemented (matplotlib, scipy) rather than moved behind extras, and the plotting helpers that replace seaborn's plot types are added here.
   - The beeswarm and letter-value plots port seaborn's algorithms so layouts match exactly; reference outputs are recorded as fixtures first.
+- **2026-11-15T14:50:39-08:00** — Activated.
+  - Branch: `feature/000-drop-pandas-req`
+  - Base: `dev` at `48e6aa9`
+  - Worktree: `.worktrees/000-drop-pandas-req`
+  - PR: pending
 
 ## Handoff
 
