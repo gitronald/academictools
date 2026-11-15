@@ -102,6 +102,29 @@ class TestEnhancedPlots:
         assert legend is not None
         assert [t.get_text() for t in legend.get_texts()] == ["a", "b"]
 
+    def test_line_numeric_hue_sorted_like_other_helpers(self):
+        df = pl.DataFrame(
+            {
+                "x": [1, 2, 1, 2, 1, 2],
+                "y": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+                "h": [3, 3, 1, 1, 2, 2],
+            }
+        )
+        line_ax = enhanced_lineplot(df, "x", "y", hue="h", errorbar=None)
+        _, ax = plt.subplots()
+        scatter_ax = enhanced_scatterplot(df, "x", "y", hue="h", ax=ax)
+        labels = []
+        for a in (line_ax, scatter_ax):
+            legend = a.get_legend()
+            assert legend is not None
+            labels.append([t.get_text() for t in legend.get_texts()])
+        assert labels[0] == labels[1] == ["1", "2", "3"]
+
+    def test_line_skips_nan(self):
+        df = pl.DataFrame({"x": [1, 1, 2], "y": [1.0, float("nan"), 2.0]})
+        ax = enhanced_lineplot(df, "x", "y", errorbar=None)
+        assert np.asarray(ax.lines[0].get_ydata()).tolist() == [1.0, 2.0]
+
     def test_line_returns_axes(self, plot_df):
         assert isinstance(enhanced_lineplot(plot_df, "x", "y"), Axes)
 

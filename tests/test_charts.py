@@ -14,6 +14,10 @@ from matplotlib.patches import Rectangle
 
 from tools.plots._seaborn_port import Beeswarm, letter_values
 from tools.plots.charts import (
+    _complete,
+    _dodge_offsets,
+    _levels,
+    _single_color,
     barplot,
     boxenplot,
     boxplot,
@@ -359,6 +363,64 @@ class TestOtherHelpers:
     def test_orient_validated(self, groups_df):
         with pytest.raises(ValueError, match="orient"):
             barplot(groups_df, "cat", "val", orient="z")  # type: ignore[arg-type]
+
+
+class TestMissingAndOrder:
+    @pytest.fixture
+    def nan_df(self):
+        return pl.DataFrame(
+            {
+                "cat": ["a", "a", "a", "b", "b", "b"],
+                "x": [0.0, 1.0, float("nan"), 2.0, 3.0, 4.0],
+                "y": [1.0, float("nan"), 3.0, 4.0, 5.0, 6.0],
+            }
+        )
+
+    def test_complete_drops_nan_and_null(self, nan_df):
+        df = nan_df.with_columns(pl.Series("g", ["u", None, "u", "u", "u", "u"]))
+        assert _complete(df, "x", "y", "g").get_column("x").to_list() == [
+            0.0,
+            2.0,
+            3.0,
+            4.0,
+        ]
+
+    def test_hist_and_regplot_skip_nan(self, nan_df):
+        ax = histplot(nan_df, "x", bins=4, stat="count")
+        assert sum(p.get_height() for p in _bars(ax)) == 5
+        regplot(nan_df, "x", "y", n_boot=50, seed=0)
+
+    def test_boxplot_statistics_ignore_nan(self, nan_df):
+        ax = boxplot(nan_df, "cat", "y")
+        medians = [np.asarray(ln.get_ydata()) for ln in ax.lines[4::6]]
+        assert medians[0][0] == pytest.approx(2.0)
+        assert medians[1][0] == pytest.approx(5.0)
+
+    def test_enum_levels_follow_declared_order(self):
+        levels = pl.Enum(["low", "mid", "high"])
+        series = pl.Series(["high", "low", "mid", "high"], dtype=levels)
+        assert _levels(series, None) == ["low", "mid", "high"]
+        df = pl.DataFrame({"c": series, "v": [1.0, 2.0, 3.0, 4.0]})
+        ax = barplot(df, "c", "v", errorbar=None)
+        assert [t.get_text() for t in ax.get_xticklabels()] == ["low", "mid", "high"]
+
+    def test_numeric_and_boolean_levels_sort(self):
+        assert _levels(pl.Series([3, 1, 2]), None) == [1, 2, 3]
+        assert _levels(pl.Series([True, False]), None) == [False, True]
+        assert _levels(pl.Series(["b", "a"]), None) == ["b", "a"]
+
+    @pytest.mark.parametrize(
+        ("n_hue", "dodge", "each"), [(1, True, 0.8), (2, False, 0.8), (4, True, 0.2)]
+    )
+    def test_dodge_offsets_width(self, n_hue, dodge, each):
+        offsets, width = _dodge_offsets(0.8, n_hue, dodge)
+        assert len(offsets) == n_hue
+        assert width == pytest.approx(each)
+        assert offsets.mean() == pytest.approx(0.0)
+
+    def test_single_color_default_and_explicit(self):
+        assert _single_color(None) == resolve_colors([0])[0]
+        assert _single_color("red") == to_rgb("red")
 
 
 class TestHeatmap:

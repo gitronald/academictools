@@ -36,30 +36,49 @@ def _get_ax(ax: Axes | None) -> Axes:
 
 
 def _complete(df: pl.DataFrame, *cols: str | None) -> pl.DataFrame:
-    """The named columns (each once, Nones skipped), with null rows dropped."""
+    """The named columns (each once, Nones skipped), with missing rows dropped.
+
+    A row is missing when any of its values is null or a float NaN, as seaborn
+    treats both.
+    """
     names = list(dict.fromkeys(c for c in cols if c is not None))
-    return df.select(names).drop_nulls()
+    data = df.select(names).drop_nulls()
+    floats = [name for name, dtype in data.schema.items() if dtype.is_float()]
+    if floats:
+        data = data.filter(~pl.any_horizontal(pl.col(floats).is_nan()))
+    return data
+
+
+def _single_color(color: Any) -> RGB:
+    """``color`` as RGB, or the palette's first color when it is None."""
+    return to_rgb(color) if color is not None else resolve_colors([0])[0]
 
 
 def _levels(series: pl.Series, order: Sequence[Any] | None) -> list[Any]:
-    """Category levels: ``order`` if given, else sorted numbers or first-seen."""
+    """Category levels: ``order`` if given, else an Enum's declared categories,
+    sorted numbers, dates, and booleans, or first-seen values."""
     if order is not None:
         return list(order)
     values = series.drop_nulls()
-    if values.dtype.is_numeric() or values.dtype.is_temporal():
-        return values.unique().sort().to_list()
-    if values.dtype == pl.Boolean:
+    dtype = values.dtype
+    if isinstance(dtype, pl.Enum):
+        return dtype.categories.to_list()
+    if dtype.is_numeric() or dtype.is_temporal() or dtype == pl.Boolean:
         return values.unique().sort().to_list()
     return values.unique(maintain_order=True).to_list()
 
 
-def _dodge_offsets(width: float, n_hue: int, dodge: bool) -> np.ndarray:
-    """Offsets that place ``n_hue`` elements side by side within ``width``."""
+def _dodge_offsets(width: float, n_hue: int, dodge: bool) -> tuple[np.ndarray, float]:
+    """Offsets that place ``n_hue`` elements side by side within ``width``.
+
+    Returns:
+        Tuple of (offset per hue level, width of each element)
+    """
     if not dodge or n_hue <= 1:
-        return np.zeros(n_hue)
+        return np.zeros(n_hue), width
     each = width / n_hue
     offsets = np.linspace(0, width - each, n_hue)
-    return offsets - offsets.mean()
+    return offsets - offsets.mean(), each
 
 
 @dataclass
@@ -101,7 +120,7 @@ def _categorical(
         colors = resolve_colors(hues, palette)
     else:
         hues = [None]
-        colors = [to_rgb(color) if color is not None else resolve_colors([0])[0]]
+        colors = [_single_color(color)]
     groups: dict[tuple[int, int], np.ndarray] = {}
     for ci, cat in enumerate(cats):
         sub = data.filter(pl.col(cat_col) == cat)
@@ -225,8 +244,7 @@ def barplot(
     ax = _get_ax(ax)
     cat = _categorical(df, x, y, hue, order, hue_order, orient, palette, color)
     n_hue = len(cat.hues)
-    offsets = _dodge_offsets(width, n_hue, dodge)
-    bar_width = width / n_hue if dodge and n_hue > 1 else width
+    offsets, bar_width = _dodge_offsets(width, n_hue, dodge)
     err = _err_kws(err_kws, _ERR_COLOR)
     for (ci, hi), values in cat.groups.items():
         est, low, high = estimate_interval(values, estimator, errorbar, n_boot, seed)
@@ -391,7 +409,7 @@ def regplot(
     data = _complete(df, x, y)
     xv = data.get_column(x).cast(pl.Float64).to_numpy()
     yv = data.get_column(y).cast(pl.Float64).to_numpy()
-    rgb = to_rgb(color) if color is not None else resolve_colors([0])[0]
+    rgb = _single_color(color)
     if scatter:
         point_kws: dict[str, Any] = {"color": rgb, "alpha": 0.8, **(scatter_kws or {})}
         ax.scatter(xv, yv, **point_kws)
@@ -449,7 +467,7 @@ def scatterplot(
     ax = _get_ax(ax)
     data = _complete(df, x, y, hue)
     if hue is None:
-        rgb = to_rgb(color) if color is not None else resolve_colors([0])[0]
+        rgb = _single_color(color)
         ax.scatter(data.get_column(x), data.get_column(y), color=rgb, **kwargs)
     else:
         levels = _levels(data.get_column(hue), hue_order)
@@ -526,7 +544,7 @@ def histplot(
     total = all_values.size
     if hue is None:
         levels: list[Any] = [None]
-        colors = [to_rgb(color) if color is not None else resolve_colors([0])[0]]
+        colors = [_single_color(color)]
     else:
         levels = _levels(data.get_column(hue), hue_order)
         colors = resolve_colors(levels, palette)
@@ -617,8 +635,7 @@ def boxplot(
     ax = _get_ax(ax)
     cat = _categorical(df, x, y, hue, order, hue_order, orient, palette, color)
     n_hue = len(cat.hues)
-    offsets = _dodge_offsets(width, n_hue, dodge)
-    box_width = width / n_hue if dodge and n_hue > 1 else width
+    offsets, box_width = _dodge_offsets(width, n_hue, dodge)
     lw = linewidth if linewidth is not None else plt.rcParams["lines.linewidth"]
     line = {"color": linecolor, "linewidth": lw}
     flier: dict[str, Any] = {"markeredgecolor": linecolor, "markeredgewidth": lw}
@@ -715,7 +732,7 @@ def swarmplot(
     cat = _categorical(df, x, y, hue, order, hue_order, orient, palette, color)
     width = 0.8
     n_hue = len(cat.hues)
-    offsets = _dodge_offsets(width, n_hue, dodge)
+    offsets, _ = _dodge_offsets(width, n_hue, dodge)
     scatter_kws: dict[str, Any] = {
         "s": size**2,
         "linewidth": linewidth,
@@ -814,8 +831,7 @@ def boxenplot(
     ax = _get_ax(ax)
     cat = _categorical(df, x, y, hue, order, hue_order, orient, palette, color)
     n_hue = len(cat.hues)
-    offsets = _dodge_offsets(width, n_hue, dodge)
-    box_width = width / n_hue if dodge and n_hue > 1 else width
+    offsets, box_width = _dodge_offsets(width, n_hue, dodge)
     lw = linewidth if linewidth is not None else 0.5 * plt.rcParams["lines.linewidth"]
     for (ci, hi), values in cat.groups.items():
         lv = letter_values(values, k_depth, outlier_prop, trust_alpha)

@@ -4,14 +4,19 @@ import datetime
 from collections.abc import Sequence
 from typing import Any
 
-import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 from matplotlib.axes import Axes
-from matplotlib.colors import to_rgb
 from matplotlib.figure import Figure
 
-from tools.plots.charts import boxplot, scatterplot
+from tools.plots.charts import (
+    _complete,
+    _get_ax,
+    _levels,
+    _single_color,
+    boxplot,
+    scatterplot,
+)
 from tools.plots.estimate import ErrorBar, Estimator, estimate_interval
 from tools.plots.palettes import Palette, resolve_colors
 
@@ -77,19 +82,13 @@ def enhanced_lineplot(
     Returns:
         matplotlib Axes object
     """
-    ax = ax if ax is not None else plt.gca()
-    cols = list(dict.fromkeys(c for c in (x, y, hue) if c is not None))
-    data = df.select(cols).drop_nulls()
+    ax = _get_ax(ax)
+    data = _complete(df, x, y, hue)
     if hue is None:
         levels: list[Any] = [None]
-        colors = [to_rgb(color) if color is not None else resolve_colors([0])[0]]
+        colors = [_single_color(color)]
     else:
-        series = data.get_column(hue)
-        levels = (
-            list(hue_order)
-            if hue_order is not None
-            else series.unique(maintain_order=True).to_list()
-        )
+        levels = _levels(data.get_column(hue), hue_order)
         colors = resolve_colors(levels, palette)
     for level, rgb in zip(levels, colors):
         part = data if hue is None else data.filter(pl.col(hue) == level)
