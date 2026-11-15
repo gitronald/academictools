@@ -37,3 +37,11 @@ def test_import_loads_no_pandas_seaborn_or_statsmodels(name):
         check=True,
     )
     assert result.stdout.strip() == ""
+
+
+def test_version_matches_package_metadata():
+    from importlib.metadata import version
+
+    import tools
+
+    assert tools.__version__ == version("academictools")
