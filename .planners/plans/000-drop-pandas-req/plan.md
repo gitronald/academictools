@@ -124,6 +124,14 @@ types for callers.
   - Worktree: `.worktrees/000-drop-pandas-req`
   - PR: pending
 - **2026-11-15T14:53:10-08:00** — PR opened: https://github.com/gitronald/academictools/pull/5
+- **2026-11-15T15:05:57-08:00** — Implemented steps 1-9 on the feature branch; final checks at 184464c (base dev unchanged): ruff and pyrefly strict clean, 454 tests pass at 98% coverage, `uv build` succeeds.
+  - Step 3: fixtures recorded once from a throwaway `uv run --no-project --with` environment (seaborn 0.13.2, statsmodels 0.15.0, matplotlib 3.11.2, numpy 2.5.4, scipy 1.18.1) by `tests/fixtures/record_reference.py`; the dev group carries neither package. Beeswarm placement depends on the axes transform, so it is recorded both at algorithm level (point space) and as full swarm plots on a fixed 4x3 in, 100 dpi figure.
+  - Step 4: `_mcnemar` (scipy `binomtest` / `chi2`) and `z_test` (pooled variance, `norm`) match every recorded statsmodels case; `mcnemar_test` gained `exact` and `correction`.
+  - Step 5: new modules `tools/plots/charts.py`, `palettes.py`, `estimate.py`, and `_seaborn_port.py` (keeps seaborn's BSD notice). Swarm offsets match seaborn exactly (zero difference) in both orientations; letter values and boxen widths match for every `k_depth` and `width_method`. Helper keywords follow the existing presets in `settings.py`, so `box_kws`, `pointplot_kws`, and `heatmap_kws_proportion` work with the helpers; `strip_kws` stays a seaborn stripplot preset, since strip plots are out of scope.
+  - Step 5 deviations: seaborn's `ticks`/`whitegrid` styles set `image.cmap` to its own `rocket` map, which matplotlib does not ship, so the rcParams copies leave that key out. Boxen fill colors use a plain RGB tint ramp rather than seaborn's HUSL light palette, so box colors differ slightly while depths match. seaborn's `color_palette` cycles a qualitative map past its size, which the port does too.
+  - Step 7: pyarrow stays. duckdb's `relation.pl()` in `tools/io/sql.py` converts through pyarrow (12 SQL tests failed with it removed), which is the plan's "unless something else needs it" case; a comment in `pyproject.toml` says why. Re-locking moved pyarrow 26.0.0 to 26.0.1 within its pin. `uv.lock` has no pandas, seaborn, or statsmodels entries, and `uv tree --invert --package pandas` lists nothing.
+  - Step 8: `tests/test_imports.py` imports each module in a fresh interpreter and resolves every `__all__` name; the probe was checked to report `pandas` when pandas is loaded.
+  - Step 9: README, CHANGELOG `[Unreleased]`, and `.claude/CLAUDE.md` updated. The minor release is not cut: it follows the merge, from dev.
 
 ## Handoff
 
