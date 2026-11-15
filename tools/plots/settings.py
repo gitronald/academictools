@@ -27,14 +27,14 @@ RC_PARAMS = {
 
 # Style Keyword Defaults
 
+# seaborn stripplot keywords; no helper here draws strip plots
 # usage: sns.stripplot(x="day", y="total_bill", data=tips, **strip_kws)
 strip_kws = dict(jitter=True, size=1.5, alpha=0.7)
 
-# usage: sns.boxplot(x="day", y="total_bill", data=tips, **box_kws)
+# usage: boxplot(tips, "day", "total_bill", **box_kws)
 box_kws = dict(linewidth=0.75, color="whitesmoke", width=0.5, fliersize=0)
 
-# usage: sns.pointplot(x="time", y="total_bill", hue="smoker", data=tips,
-#         **pointplot_kws)
+# usage: pointplot(tips, "time", "total_bill", hue="smoker", **pointplot_kws)
 pointplot_kws = dict(
     dodge=0.2,
     alpha=0.8,
@@ -46,7 +46,7 @@ pointplot_kws = dict(
     capsize=0.1,
 )
 
-# usage: sns.heatmap(matrix, **heatmap_kws)
+# usage: heatmap(matrix, **heatmap_kws_proportion)
 heatmap_kws_proportion = dict(
     annot=True,
     annot_kws={"size": 8},

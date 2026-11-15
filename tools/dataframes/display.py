@@ -1,24 +1,27 @@
 """Display utilities for tables and data visualization.
 
 This module provides functions for displaying polars DataFrames in both text
-and HTML formats. Frames are converted to pandas internally for consistent
-display formatting (pandas' to_string/to_html and MultiIndex column titles).
+and HTML formats, using polars' own rendering.
 """
 
-from typing import Any
+from html import escape
 
-import pandas as pd
 import polars as pl
+from IPython.core.formatters import HTMLFormatter
 from IPython.display import HTML, display
 
 from tools.utils.jupyter import in_jupyter_notebook
 from tools.utils.printing import print_line
 
-pd_options: dict[str, Any] = {
-    "display.width": 120,
-    "display.max_colwidth": 80,
-    "display.max_columns": None,
-}
+
+def _table_config() -> pl.Config:
+    """Polars display settings for full tables: all rows and columns, wide output."""
+    return pl.Config(
+        tbl_rows=-1,
+        tbl_cols=-1,
+        tbl_width_chars=120,
+        fmt_str_lengths=80,
+    )
 
 
 def set_css():
@@ -62,24 +65,34 @@ def display_tables_text(
 ) -> None:
     """Display tables in text format for console output.
 
-    Converts polars DataFrames to pandas for consistent string representation.
+    Prints each polars DataFrame in full (every row and column), under a rule
+    carrying its title when titles are given.
 
     Args:
         tables: List of polars DataFrames to display
         titles: Optional list of table captions
-        ncols: Number of columns to display (default: len(tables))
+        ncols: Accepted for parity with ``display_tables_html``; text output
+            always prints one table after another
     """
-    ncols = len(tables) if not ncols else ncols
-    if titles:
-        for title, df in zip(titles, tables):
-            print_line(title)
-            df = df.to_pandas()
-            print(df.to_string(index=True), "\n\n")
-    else:
-        for df in tables:
-            print_line()
-            df = df.to_pandas()
-            print(df.to_string(index=True), "\n\n")
+    with _table_config():
+        if titles:
+            for title, df in zip(titles, tables):
+                print_line(title)
+                print(df, "\n\n")
+        else:
+            for df in tables:
+                print_line()
+                print(df, "\n\n")
+
+
+def _html_table(df: pl.DataFrame, title: str | None = None) -> str:
+    """Render one polars frame as HTML, with an optional bold title above it."""
+    with _table_config():
+        table = HTMLFormatter()(df)
+    if title is None:
+        return table
+    heading = f"<div style='font-weight:bold;text-align:left'>{escape(title)}</div>"
+    return heading + table
 
 
 def display_tables_html(
@@ -89,8 +102,8 @@ def display_tables_html(
 ) -> None:
     """Display tables side by side in HTML format for Jupyter notebooks.
 
-    Creates an HTML table layout with optional titles and automatically converts
-    polars DataFrames to pandas for HTML generation.
+    Creates an HTML table layout with optional titles, rendering each polars
+    DataFrame with polars' own HTML output.
 
     Args:
         tables: List of polars DataFrames to display
@@ -106,17 +119,13 @@ def display_tables_html(
     )
     html_cell = html_cell.format(width=100 / ncols)
 
-    cells = []
     if titles:
-        for title, df in zip(titles, tables):
-            df = df.to_pandas()
-            df.columns = pd.MultiIndex.from_product([[title], df.columns])
-            df.columns.name = title
-            cells.append(html_cell.format(content=df.to_html()))
+        cells = [
+            html_cell.format(content=_html_table(df, title))
+            for title, df in zip(titles, tables)
+        ]
     else:
-        for df in tables:
-            df = df.to_pandas()
-            cells.append(html_cell.format(content=df.to_html()))
+        cells = [html_cell.format(content=_html_table(df)) for df in tables]
 
     # Add Padding
     cells += (ncols - (len(tables) % ncols)) * [html_cell.format(content="")]

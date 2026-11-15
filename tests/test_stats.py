@@ -1,7 +1,12 @@
+import json
+import math
+from pathlib import Path
+
 import polars as pl
 import pytest
 
 from tools.stats.nonparametric import (
+    _mcnemar,
     get_modal_category,
     kruskal_test,
     kruskal_test_multi,
@@ -16,6 +21,60 @@ from tools.stats.parametric import (
     pearsonr_ci,
     z_test,
 )
+
+STATSMODELS_REFERENCE = json.loads(
+    (Path(__file__).parent / "fixtures" / "statsmodels_reference.json").read_text()
+)
+
+
+class TestMcnemarReference:
+    @pytest.mark.parametrize(
+        "case",
+        STATSMODELS_REFERENCE["mcnemar"],
+        ids=lambda c: f"{c['table']}-exact={c['exact']}-corr={c['correction']}",
+    )
+    def test_matches_statsmodels(self, case):
+        statistic, pvalue = _mcnemar(
+            case["table"], exact=case["exact"], correction=case["correction"]
+        )
+        assert statistic == pytest.approx(case["statistic"], rel=1e-12)
+        assert pvalue == pytest.approx(case["pvalue"], rel=1e-9)
+
+    def test_chi_square_without_discordant_pairs_is_nan(self):
+        statistic, pvalue = _mcnemar([[4, 0], [0, 6]], exact=False)
+        assert math.isnan(statistic)
+        assert math.isnan(pvalue)
+
+    def test_mcnemar_test_passes_options(self):
+        # 10 discordant (1, 0) pairs and 3 (0, 1) pairs
+        df = pl.DataFrame({"a": [1] * 10 + [0] * 3, "b": [0] * 10 + [1] * 3})
+        _, exact = mcnemar_test(df, "a", "b")
+        _, chi = mcnemar_test(df, "a", "b", exact=False, correction=False)
+        assert exact["chi2"] == 3.0
+        assert chi["chi2"] == pytest.approx(49 / 13)
+        assert exact["pvalue"] != chi["pvalue"]
+
+
+class TestZTestReference:
+    @pytest.mark.parametrize(
+        "case",
+        STATSMODELS_REFERENCE["ztest"],
+        ids=lambda c: f"{c['count']}/{c['nobs']}-{c['value']}-{c['alternative']}",
+    )
+    def test_matches_statsmodels(self, case):
+        result = z_test(
+            case["count"], case["nobs"], case["value"], alternative=case["alternative"]
+        )
+        assert result["z"] == pytest.approx(case["z"], rel=1e-12, abs=1e-15)
+        assert result["p"] == pytest.approx(case["p"], rel=1e-9, abs=1e-300)
+
+    def test_rejects_bad_alternative(self):
+        with pytest.raises(ValueError, match="alternative must be"):
+            z_test([1, 2], [10, 10], alternative="bigger")
+
+    def test_rejects_wrong_sample_count(self):
+        with pytest.raises(ValueError, match="exactly two samples"):
+            z_test([1, 2, 3], [10, 10, 10])
 
 
 class TestKruskalTest:
