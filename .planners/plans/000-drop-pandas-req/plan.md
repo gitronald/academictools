@@ -1,10 +1,10 @@
 ---
 id: 0
 slug: drop-pandas-req
-status: implemented
+status: done
 branch: feature/000-drop-pandas-req
 created: 2026-11-15T14:40:34-08:00
-concluded:
+concluded: 2026-11-15T15:14:49-08:00
 pr: https://github.com/gitronald/academictools/pull/5
 ---
 
@@ -141,8 +141,8 @@ types for callers.
 
 ## Handoff
 
-State: steps 1-9 implemented and pushed on `feature/000-drop-pandas-req`
-(PR #5); nothing uncommitted or unpushed.
+State: closed 2026-11-15. Steps 1-9 implemented, the review gate passed
+(fixes in 05c29f0), and PR #5 merged into `dev`.
 
 Open questions: none.
 
@@ -157,8 +157,24 @@ Settled (2026-11-15):
 
 Not verified: the helpers' look against seaborn beyond the fixtures (a
 rendered gallery was checked by eye only); boxen fill colors are a plain tint
-ramp, not seaborn's HUSL palette.
+ramp, not seaborn's HUSL palette; dodged swarm plots (the fixtures cover
+swarms without hue only, and the beeswarm width is not narrowed per hue level).
 
-Next: review of PR #5 (waits on the owner), then `/planners close`, then the
-minor release with stanza from dev (step 9's release), whose changelog
-`[Unreleased]` is already filled.
+Next: the minor release with stanza from `dev` (step 9's release, owner's
+call), whose changelog `[Unreleased]` is already filled. Nothing else remains
+in this plan.
+
+## Retrospective
+
+- Recording seaborn and statsmodels outputs first, from a throwaway
+  environment, let the ports be checked to zero difference without either
+  package ever entering the dev group; worth repeating for any future port.
+- The plan's "unless something else needs it" hedge on pyarrow paid off:
+  duckdb's `relation.pl()` needs it, which only the SQL tests showed.
+- Review caught what the fixtures could not: the fixtures test algorithms on
+  clean arrays, so NaN handling and level ordering, which seaborn got from
+  pandas for free, went missing until the review. Edge-case tests for missing
+  values and categorical order belong in the port's first pass.
+- `enhanced_lineplot` was written beside `charts.py` rather than on it, and
+  drifted on hue order. A wrapper should go through the shared helpers from the
+  start.
