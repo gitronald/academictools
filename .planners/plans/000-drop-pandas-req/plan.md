@@ -135,7 +135,8 @@ types for callers.
 
 ## Handoff
 
-State: drafted 2026-11-15; nothing implemented.
+State: steps 1-9 implemented and pushed on `feature/000-drop-pandas-req`
+(PR #5); nothing uncommitted or unpushed.
 
 Open questions: none.
 
@@ -146,6 +147,12 @@ Settled (2026-11-15):
    optional (steps 5-6), so the question of extra names is moot.
 3. The beeswarm and letter-value plots keep seaborn's layouts exactly,
    through a port of seaborn's algorithms, not a substitute plot type.
+4. pyarrow stays a requirement: duckdb's `relation.pl()` needs it (step 7).
 
-Next: step 3 (record the reference outputs), then steps 1-2 and 4-6 in any
-order, then 7-9.
+Not verified: the helpers' look against seaborn beyond the fixtures (a
+rendered gallery was checked by eye only); boxen fill colors are a plain tint
+ramp, not seaborn's HUSL palette.
+
+Next: review of PR #5 (waits on the owner), then `/planners close`, then the
+minor release with stanza from dev (step 9's release), whose changelog
+`[Unreleased]` is already filled.
