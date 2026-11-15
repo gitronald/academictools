@@ -5,7 +5,7 @@ status: active
 branch: feature/000-drop-pandas-req
 created: 2026-11-15T14:40:34-08:00
 concluded:
-pr:
+pr: https://github.com/gitronald/academictools/pull/5
 ---
 
 # Drop pandas from the package requirements
@@ -123,6 +123,7 @@ types for callers.
   - Base: `dev` at `48e6aa9`
   - Worktree: `.worktrees/000-drop-pandas-req`
   - PR: pending
+- **2026-11-15T14:53:10-08:00** — PR opened: https://github.com/gitronald/academictools/pull/5
 
 ## Handoff
 
