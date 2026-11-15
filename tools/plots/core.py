@@ -9,14 +9,8 @@ import polars as pl
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
-from tools.plots.charts import (
-    _complete,
-    _get_ax,
-    _levels,
-    _single_color,
-    boxplot,
-    scatterplot,
-)
+from tools.plots._common import category_levels, complete_rows, get_ax, single_color
+from tools.plots.charts import boxplot, scatterplot
 from tools.plots.estimate import ErrorBar, Estimator, estimate_interval
 from tools.plots.palettes import Palette, resolve_colors
 
@@ -82,13 +76,13 @@ def enhanced_lineplot(
     Returns:
         matplotlib Axes object
     """
-    ax = _get_ax(ax)
-    data = _complete(df, x, y, hue)
+    ax = get_ax(ax)
+    data = complete_rows(df, x, y, hue)
     if hue is None:
         levels: list[Any] = [None]
-        colors = [_single_color(color)]
+        colors = [single_color(color)]
     else:
-        levels = _levels(data.get_column(hue), hue_order)
+        levels = category_levels(data.get_column(hue), hue_order)
         colors = resolve_colors(levels, palette)
     for level, rgb in zip(levels, colors):
         part = data if hue is None else data.filter(pl.col(hue) == level)

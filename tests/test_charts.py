@@ -12,12 +12,10 @@ from matplotlib.collections import PatchCollection, PathCollection, QuadMesh
 from matplotlib.colors import LogNorm, to_rgb
 from matplotlib.patches import Rectangle
 
+from tools.plots._common import category_levels, complete_rows, single_color
 from tools.plots._seaborn_port import Beeswarm, letter_values
 from tools.plots.charts import (
-    _complete,
     _dodge_offsets,
-    _levels,
-    _single_color,
     barplot,
     boxenplot,
     boxplot,
@@ -242,6 +240,14 @@ class TestEstimate:
         with pytest.raises(ValueError, match="unknown estimator"):
             estimate_interval(np.arange(3.0), estimator="nope")
 
+    def test_se_sd_require_mean(self):
+        x = np.arange(5.0)
+        for spec in ("sd", ("se", 2)):
+            with pytest.raises(ValueError, match="spreads around the mean"):
+                estimate_interval(x, "median", errorbar=spec)
+        est, _, _ = estimate_interval(x, np.mean, errorbar="sd")
+        assert est == 2.0
+
 
 class TestBarAndPointPlots:
     def test_bar_heights_are_means(self, groups_df):
@@ -378,7 +384,7 @@ class TestMissingAndOrder:
 
     def test_complete_drops_nan_and_null(self, nan_df):
         df = nan_df.with_columns(pl.Series("g", ["u", None, "u", "u", "u", "u"]))
-        assert _complete(df, "x", "y", "g").get_column("x").to_list() == [
+        assert complete_rows(df, "x", "y", "g").get_column("x").to_list() == [
             0.0,
             2.0,
             3.0,
@@ -390,6 +396,11 @@ class TestMissingAndOrder:
         assert sum(p.get_height() for p in _bars(ax)) == 5
         regplot(nan_df, "x", "y", n_boot=50, seed=0)
 
+    def test_regplot_needs_two_complete_rows(self):
+        df = pl.DataFrame({"x": [1.0, None], "y": [None, 2.0]})
+        with pytest.raises(ValueError, match="at least two rows"):
+            regplot(df, "x", "y")
+
     def test_boxplot_statistics_ignore_nan(self, nan_df):
         ax = boxplot(nan_df, "cat", "y")
         medians = [np.asarray(ln.get_ydata()) for ln in ax.lines[4::6]]
@@ -399,15 +410,15 @@ class TestMissingAndOrder:
     def test_enum_levels_follow_declared_order(self):
         levels = pl.Enum(["low", "mid", "high"])
         series = pl.Series(["high", "low", "mid", "high"], dtype=levels)
-        assert _levels(series, None) == ["low", "mid", "high"]
+        assert category_levels(series, None) == ["low", "mid", "high"]
         df = pl.DataFrame({"c": series, "v": [1.0, 2.0, 3.0, 4.0]})
         ax = barplot(df, "c", "v", errorbar=None)
         assert [t.get_text() for t in ax.get_xticklabels()] == ["low", "mid", "high"]
 
     def test_numeric_and_boolean_levels_sort(self):
-        assert _levels(pl.Series([3, 1, 2]), None) == [1, 2, 3]
-        assert _levels(pl.Series([True, False]), None) == [False, True]
-        assert _levels(pl.Series(["b", "a"]), None) == ["b", "a"]
+        assert category_levels(pl.Series([3, 1, 2]), None) == [1, 2, 3]
+        assert category_levels(pl.Series([True, False]), None) == [False, True]
+        assert category_levels(pl.Series(["b", "a"]), None) == ["b", "a"]
 
     @pytest.mark.parametrize(
         ("n_hue", "dodge", "each"), [(1, True, 0.8), (2, False, 0.8), (4, True, 0.2)]
@@ -419,8 +430,8 @@ class TestMissingAndOrder:
         assert offsets.mean() == pytest.approx(0.0)
 
     def test_single_color_default_and_explicit(self):
-        assert _single_color(None) == resolve_colors([0])[0]
-        assert _single_color("red") == to_rgb("red")
+        assert single_color(None) == resolve_colors([0])[0]
+        assert single_color("red") == to_rgb("red")
 
 
 class TestHeatmap:

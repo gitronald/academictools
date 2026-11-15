@@ -16,10 +16,11 @@ import numpy as np
 import polars as pl
 from matplotlib.axes import Axes
 from matplotlib.collections import PatchCollection, PathCollection, QuadMesh
-from matplotlib.colors import LinearSegmentedColormap, Normalize, to_rgb, to_rgba_array
+from matplotlib.colors import LinearSegmentedColormap, Normalize, to_rgba_array
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch, Rectangle
 
+from tools.plots._common import category_levels, complete_rows, get_ax, single_color
 from tools.plots._seaborn_port import Beeswarm, KDepth, letter_values
 from tools.plots.estimate import ErrorBar, Estimator, bootstrap, estimate_interval
 from tools.plots.palettes import RGB, Palette, resolve_colors
@@ -29,43 +30,6 @@ Seed = int | np.random.Generator | None
 
 # Error bar defaults, as seaborn draws them
 _ERR_COLOR = ".26"
-
-
-def _get_ax(ax: Axes | None) -> Axes:
-    return ax if ax is not None else plt.gca()
-
-
-def _complete(df: pl.DataFrame, *cols: str | None) -> pl.DataFrame:
-    """The named columns (each once, Nones skipped), with missing rows dropped.
-
-    A row is missing when any of its values is null or a float NaN, as seaborn
-    treats both.
-    """
-    names = list(dict.fromkeys(c for c in cols if c is not None))
-    data = df.select(names).drop_nulls()
-    floats = [name for name, dtype in data.schema.items() if dtype.is_float()]
-    if floats:
-        data = data.filter(~pl.any_horizontal(pl.col(floats).is_nan()))
-    return data
-
-
-def _single_color(color: Any) -> RGB:
-    """``color`` as RGB, or the palette's first color when it is None."""
-    return to_rgb(color) if color is not None else resolve_colors([0])[0]
-
-
-def _levels(series: pl.Series, order: Sequence[Any] | None) -> list[Any]:
-    """Category levels: ``order`` if given, else an Enum's declared categories,
-    sorted numbers, dates, and booleans, or first-seen values."""
-    if order is not None:
-        return list(order)
-    values = series.drop_nulls()
-    dtype = values.dtype
-    if isinstance(dtype, pl.Enum):
-        return dtype.categories.to_list()
-    if dtype.is_numeric() or dtype.is_temporal() or dtype == pl.Boolean:
-        return values.unique().sort().to_list()
-    return values.unique(maintain_order=True).to_list()
 
 
 def _dodge_offsets(width: float, n_hue: int, dodge: bool) -> tuple[np.ndarray, float]:
@@ -113,14 +77,14 @@ def _categorical(
     if orient not in ("x", "y"):
         raise ValueError(f"orient must be 'x' or 'y', got {orient!r}")
     cat_col, val_col = (x, y) if orient == "x" else (y, x)
-    data = _complete(df, cat_col, val_col, hue)
-    cats = _levels(data.get_column(cat_col), order)
+    data = complete_rows(df, cat_col, val_col, hue)
+    cats = category_levels(data.get_column(cat_col), order)
     if hue:
-        hues = _levels(data.get_column(hue), hue_order)
+        hues = category_levels(data.get_column(hue), hue_order)
         colors = resolve_colors(hues, palette)
     else:
         hues = [None]
-        colors = [_single_color(color)]
+        colors = [single_color(color)]
     groups: dict[tuple[int, int], np.ndarray] = {}
     for ci, cat in enumerate(cats):
         sub = data.filter(pl.col(cat_col) == cat)
@@ -241,7 +205,7 @@ def barplot(
     Returns:
         The Axes drawn on
     """
-    ax = _get_ax(ax)
+    ax = get_ax(ax)
     cat = _categorical(df, x, y, hue, order, hue_order, orient, palette, color)
     n_hue = len(cat.hues)
     offsets, bar_width = _dodge_offsets(width, n_hue, dodge)
@@ -318,7 +282,7 @@ def pointplot(
     Returns:
         The Axes drawn on
     """
-    ax = _get_ax(ax)
+    ax = get_ax(ax)
     cat = _categorical(df, x, y, hue, order, hue_order, orient, palette, color)
     n_hue = len(cat.hues)
     if dodge is True:
@@ -405,11 +369,16 @@ def regplot(
     Returns:
         The Axes drawn on
     """
-    ax = _get_ax(ax)
-    data = _complete(df, x, y)
+    ax = get_ax(ax)
+    data = complete_rows(df, x, y)
+    if data.height < 2:
+        raise ValueError(
+            f"regplot needs at least two rows with both {x!r} and {y!r} present, "
+            f"got {data.height}"
+        )
     xv = data.get_column(x).cast(pl.Float64).to_numpy()
     yv = data.get_column(y).cast(pl.Float64).to_numpy()
-    rgb = _single_color(color)
+    rgb = single_color(color)
     if scatter:
         point_kws: dict[str, Any] = {"color": rgb, "alpha": 0.8, **(scatter_kws or {})}
         ax.scatter(xv, yv, **point_kws)
@@ -464,13 +433,13 @@ def scatterplot(
     Returns:
         The Axes drawn on
     """
-    ax = _get_ax(ax)
-    data = _complete(df, x, y, hue)
+    ax = get_ax(ax)
+    data = complete_rows(df, x, y, hue)
     if hue is None:
-        rgb = _single_color(color)
+        rgb = single_color(color)
         ax.scatter(data.get_column(x), data.get_column(y), color=rgb, **kwargs)
     else:
-        levels = _levels(data.get_column(hue), hue_order)
+        levels = category_levels(data.get_column(hue), hue_order)
         for level, rgb in zip(levels, resolve_colors(levels, palette)):
             part = data.filter(pl.col(hue) == level)
             ax.scatter(
@@ -536,17 +505,17 @@ def histplot(
         raise ValueError(f"unknown stat {stat!r}")
     if multiple not in ("layer", "stack"):
         raise ValueError(f"multiple must be 'layer' or 'stack', got {multiple!r}")
-    ax = _get_ax(ax)
-    data = _complete(df, x, hue)
+    ax = get_ax(ax)
+    data = complete_rows(df, x, hue)
     all_values = data.get_column(x).cast(pl.Float64).to_numpy()
     edges = np.histogram_bin_edges(all_values, bins=bins, range=binrange)  # type: ignore[arg-type]
     widths = np.diff(edges)
     total = all_values.size
     if hue is None:
         levels: list[Any] = [None]
-        colors = [_single_color(color)]
+        colors = [single_color(color)]
     else:
-        levels = _levels(data.get_column(hue), hue_order)
+        levels = category_levels(data.get_column(hue), hue_order)
         colors = resolve_colors(levels, palette)
     if alpha is None:
         alpha = 0.5 if hue is not None and multiple == "layer" else 0.75
@@ -632,7 +601,7 @@ def boxplot(
     Returns:
         The Axes drawn on
     """
-    ax = _get_ax(ax)
+    ax = get_ax(ax)
     cat = _categorical(df, x, y, hue, order, hue_order, orient, palette, color)
     n_hue = len(cat.hues)
     offsets, box_width = _dodge_offsets(width, n_hue, dodge)
@@ -728,7 +697,7 @@ def swarmplot(
     Returns:
         The Axes drawn on
     """
-    ax = _get_ax(ax)
+    ax = get_ax(ax)
     cat = _categorical(df, x, y, hue, order, hue_order, orient, palette, color)
     width = 0.8
     n_hue = len(cat.hues)
@@ -828,7 +797,7 @@ def boxenplot(
     """
     if width_method not in ("exponential", "linear", "area"):
         raise ValueError(f"unknown width_method {width_method!r}")
-    ax = _get_ax(ax)
+    ax = get_ax(ax)
     cat = _categorical(df, x, y, hue, order, hue_order, orient, palette, color)
     n_hue = len(cat.hues)
     offsets, box_width = _dodge_offsets(width, n_hue, dodge)
@@ -949,7 +918,7 @@ def heatmap(
     Returns:
         The Axes drawn on; the cell mesh is ``ax.collections[0]``
     """
-    ax = _get_ax(ax)
+    ax = get_ax(ax)
     if isinstance(data, pl.DataFrame):
         row_labels: list[Any] = (
             data.get_column(index_col).to_list()

@@ -86,7 +86,8 @@ def estimate_interval(
         errorbar: ``("ci", level)`` for a percentile bootstrap confidence
             interval, ``("pi", level)`` for a percentile interval of the data,
             ``("se", k)`` / ``("sd", k)`` for k standard errors / deviations
-            around the estimate (the last two only with the mean), or None
+            around the mean (the last two only with the mean estimator; any
+            other raises ValueError), or None
         n_boot: Number of bootstrap resamples for ``"ci"``
         seed: Seed or generator for the bootstrap
 
@@ -97,10 +98,15 @@ def estimate_interval(
     x = np.asarray(values, dtype=float)
     x = x[~np.isnan(x)]
     func = _estimator_func(estimator)
+    parsed = _parse_errorbar(errorbar)
+    if parsed is not None and parsed[0] in ("se", "sd") and func is not np.mean:
+        raise ValueError(
+            f"errorbar {parsed[0]!r} spreads around the mean; "
+            f"use estimator='mean' or a 'ci' or 'pi' interval, got {estimator!r}"
+        )
     if x.size == 0:
         return float("nan"), float("nan"), float("nan")
     estimate = float(func(x))
-    parsed = _parse_errorbar(errorbar)
     if parsed is None or x.size < 2:
         return estimate, float("nan"), float("nan")
     method, level = parsed
