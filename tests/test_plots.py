@@ -3,7 +3,7 @@ import warnings
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-import pandas as pd
+import numpy as np
 import polars as pl
 import pytest
 from matplotlib import MatplotlibDeprecationWarning
@@ -31,7 +31,6 @@ from tools.plots.core import (
     enhanced_scatterplot,
     noisy_limits,
     set_fig_text,
-    smart_plot_data,
 )
 from tools.plots.heatmaps import get_heatmap_data, plot_heatmap
 
@@ -75,23 +74,33 @@ def date_ax():
     return ax
 
 
-class TestSmartPlotData:
-    def test_passes_polars_through(self, plot_df):
-        out = smart_plot_data(plot_df, x="x", y="y")
-        # seaborn needs pandas: polars 2 dropped the interchange protocol
-        assert isinstance(out["data"], pd.DataFrame)
-        assert out["data"].equals(plot_df.to_pandas())
-        assert out["x"] == "x"
-        assert out["y"] == "y"
-
-
 class TestEnhancedPlots:
     def test_scatter_returns_axes(self, plot_df):
         assert isinstance(enhanced_scatterplot(plot_df, "x", "y"), Axes)
 
     def test_scatter_with_hue(self, plot_df):
-        # string column refs resolve against the converted pandas frame
-        assert isinstance(enhanced_scatterplot(plot_df, "x", "y", hue="g"), Axes)
+        ax = enhanced_scatterplot(plot_df, "x", "y", hue="g")
+        assert isinstance(ax, Axes)
+        assert len(ax.collections) == 2
+
+    def test_line_aggregates_repeated_x(self):
+        df = pl.DataFrame(
+            {"x": [1, 1, 2, 2, 3, 3], "y": [1.0, 3.0, 2.0, 4.0, 5.0, 7.0]}
+        )
+        ax = enhanced_lineplot(df, "x", "y", seed=0)
+        line = ax.lines[0]
+        assert np.asarray(line.get_xdata()).tolist() == [1, 2, 3]
+        assert np.asarray(line.get_ydata()).tolist() == [2.0, 3.0, 6.0]
+        # one confidence band
+        assert len(ax.collections) == 1
+
+    def test_line_hue_without_band(self, plot_df):
+        ax = enhanced_lineplot(plot_df, "x", "y", hue="g", errorbar=None)
+        assert len(ax.lines) == 2
+        assert len(ax.collections) == 0
+        legend = ax.get_legend()
+        assert legend is not None
+        assert [t.get_text() for t in legend.get_texts()] == ["a", "b"]
 
     def test_line_returns_axes(self, plot_df):
         assert isinstance(enhanced_lineplot(plot_df, "x", "y"), Axes)

@@ -12,6 +12,17 @@ from .axes import (
     reorder_legend,
     xaxis_date_formatter,
 )
+from .charts import (
+    barplot,
+    boxenplot,
+    boxplot,
+    heatmap,
+    histplot,
+    pointplot,
+    regplot,
+    scatterplot,
+    swarmplot,
+)
 from .core import (
     darken_hex_color,
     enhanced_boxplot,
@@ -19,9 +30,10 @@ from .core import (
     enhanced_scatterplot,
     noisy_limits,
     set_fig_text,
-    smart_plot_data,
 )
+from .estimate import bootstrap, estimate_interval
 from .heatmaps import get_heatmap_data, plot_heatmap
+from .palettes import TICKS_STYLE, WHITEGRID_STYLE, color_palette, resolve_colors
 from .settings import (
     LARGE_SIZE,
     MEDIUM_SIZE,
@@ -49,8 +61,25 @@ __all__ = [
     "box_kws",
     "pointplot_kws",
     "heatmap_kws_proportion",
+    "TICKS_STYLE",
+    "WHITEGRID_STYLE",
+    # Palettes
+    "color_palette",
+    "resolve_colors",
+    # Charts
+    "barplot",
+    "pointplot",
+    "regplot",
+    "scatterplot",
+    "histplot",
+    "boxplot",
+    "heatmap",
+    "swarmplot",
+    "boxenplot",
+    # Estimates
+    "bootstrap",
+    "estimate_interval",
     # Core
-    "smart_plot_data",
     "enhanced_scatterplot",
     "enhanced_lineplot",
     "enhanced_boxplot",
