@@ -1,7 +1,7 @@
 ---
 id: 0
 slug: drop-pandas-req
-status: active
+status: implemented
 branch: feature/000-drop-pandas-req
 created: 2026-11-15T14:40:34-08:00
 concluded:
@@ -132,6 +132,7 @@ types for callers.
   - Step 7: pyarrow stays. duckdb's `relation.pl()` in `tools/io/sql.py` converts through pyarrow (12 SQL tests failed with it removed), which is the plan's "unless something else needs it" case; a comment in `pyproject.toml` says why. Re-locking moved pyarrow 26.0.0 to 26.0.1 within its pin. `uv.lock` has no pandas, seaborn, or statsmodels entries, and `uv tree --invert --package pandas` lists nothing.
   - Step 8: `tests/test_imports.py` imports each module in a fresh interpreter and resolves every `__all__` name; the probe was checked to report `pandas` when pandas is loaded.
   - Step 9: README, CHANGELOG `[Unreleased]`, and `.claude/CLAUDE.md` updated. The minor release is not cut: it follows the merge, from dev.
+- **2026-11-15T15:06:09-08:00** — Implemented: 11 commits ahead of `dev`.
 
 ## Handoff
 
