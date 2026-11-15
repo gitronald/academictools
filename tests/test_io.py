@@ -2,7 +2,6 @@ import bz2
 import os
 import tempfile
 
-import pandas as pd
 import polars as pl
 import pytest
 from matplotlib.figure import Figure
@@ -45,18 +44,6 @@ def sample_dataframe():
 def sample_polars_dataframe():
     """Create a sample polars DataFrame for testing"""
     return pl.DataFrame(
-        {
-            "name": ["Alice", "Bob", "Charlie"],
-            "age": [25, 30, 35],
-            "city": ["New York", "London", "Tokyo"],
-        }
-    )
-
-
-@pytest.fixture
-def sample_pandas_dataframe():
-    """Create a sample pandas DataFrame for testing"""
-    return pd.DataFrame(
         {
             "name": ["Alice", "Bob", "Charlie"],
             "age": [25, 30, 35],
