@@ -22,12 +22,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `enhanced_scatterplot`, `enhanced_lineplot`, `enhanced_boxplot`, and `plot_heatmap` draw with the new helpers instead of seaborn. Their keyword arguments now go to those helpers rather than to seaborn.
 - `mcnemar_test` and `z_test` compute on scipy instead of statsmodels, with the same results.
 - `display_tables` renders tables with polars instead of pandas: text output is the polars table, and in HTML a table's title is a heading above it instead of a column header.
+- `estimate_interval`, and the plots built on it, raise a `ValueError` for an `"se"` or `"sd"` error bar with an estimator other than the mean, since those intervals spread around the mean.
+- `regplot` raises a `ValueError` naming the columns when fewer than two rows have both values present.
 
 ### Removed
 
 - `pd_options`, the pandas display settings dict.
 - `smart_plot_data`, which only converted frames to pandas for seaborn.
 - The pandas, seaborn, and statsmodels requirements. Importing `tools` no longer loads any of them.
+
+### Fixed
+
+- `tools.__version__` reports the installed package version; it had read 0.8.2 since the initial commit.
 
 ## [0.8.3] - 2026-11-13
 

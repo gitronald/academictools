@@ -24,7 +24,7 @@ Pyrefly runs the `strict` preset over the whole repo; `tests/**` relaxes
 - `tools/functions.py` - Convenience module re-exporting all subpackage functions
 - `tools/io/` - Data loading/saving (`data.py`, which also defines the `FilePath`/`JoinStrategy` aliases), file utilities (`files.py`), DuckDB queries (`sql.py`)
 - `tools/dataframes/` - Frequency tables (`dft.py`), descriptive stats (`describe.py`), inspection, reshaping, dates, sessions, display
-- `tools/plots/` - Settings, plotting helpers (`charts.py`), palettes and styles (`palettes.py`), bootstrap estimates (`estimate.py`), seaborn's beeswarm and letter values (`_seaborn_port.py`, keeps seaborn's BSD notice), core plots (`core.py`), axes helpers (`axes.py`), heatmaps (`heatmaps.py`)
+- `tools/plots/` - Settings, plotting helpers (`charts.py`), palettes and styles (`palettes.py`), bootstrap estimates (`estimate.py`), seaborn's beeswarm and letter values (`_seaborn_port.py`, keeps seaborn's BSD notice), shared data and axes helpers (`_common.py`), core plots (`core.py`), axes helpers (`axes.py`), heatmaps (`heatmaps.py`)
 - `tools/stats/` - Parametric (`parametric.py`) and nonparametric (`nonparametric.py`) tests
 - `tools/utils/` - Printing, timing, text processing, Jupyter utilities
 
