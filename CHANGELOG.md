@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-11-15
+
 ### Added
 
 - `set_theme(style)`, which sets the rcParams `seaborn.set_theme` does: the `ticks` or `whitegrid` axes style, the "notebook" context (`NOTEBOOK_CONTEXT`), and the "deep" color cycle (`DEEP`).

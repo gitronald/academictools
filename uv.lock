@@ -9,7 +9,7 @@ resolution-markers = [
 
 [[package]]
 name = "academictools"
-version = "0.9.1a0"
+version = "0.9.1"
 source = { editable = "." }
 dependencies = [
     { name = "duckdb" },
