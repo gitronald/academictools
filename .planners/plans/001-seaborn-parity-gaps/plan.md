@@ -5,7 +5,7 @@ status: active
 branch: feature/001-seaborn-parity-gaps
 created: 2026-11-15T18:35:50-08:00
 concluded:
-pr:
+pr: https://github.com/gitronald/academictools/pull/8
 ---
 
 # Close seaborn parity gaps in the plotting helpers
@@ -105,3 +105,4 @@ Close each one, test it, and release a patch version.
   - Base: `dev` at `3d2ba38`
   - Worktree: `.worktrees/001-seaborn-parity-gaps`
   - PR: pending
+- **2026-11-15T18:51:48-08:00** — PR opened: https://github.com/gitronald/academictools/pull/8
