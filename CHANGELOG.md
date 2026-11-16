@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-11-16
+
 ### Changed
 
 - `save_fig` writes PDFs without a `/CreationDate`, so saving the same figure twice writes the same bytes and a rerun that changes nothing leaves committed PDFs unchanged.
