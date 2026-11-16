@@ -33,7 +33,19 @@ from .core import (
 )
 from .estimate import bootstrap, estimate_interval
 from .heatmaps import get_heatmap_data, plot_heatmap
-from .palettes import TICKS_STYLE, WHITEGRID_STYLE, color_palette, resolve_colors
+from .palettes import (
+    DEEP,
+    NOTEBOOK_CONTEXT,
+    TICKS_STYLE,
+    WHITEGRID_STYLE,
+    blend_palette,
+    color_palette,
+    dark_palette,
+    desaturate,
+    light_palette,
+    resolve_colors,
+    set_theme,
+)
 from .settings import (
     LARGE_SIZE,
     MEDIUM_SIZE,
@@ -63,9 +75,16 @@ __all__ = [
     "heatmap_kws_proportion",
     "TICKS_STYLE",
     "WHITEGRID_STYLE",
+    "NOTEBOOK_CONTEXT",
     # Palettes
+    "DEEP",
+    "blend_palette",
     "color_palette",
+    "dark_palette",
+    "desaturate",
+    "light_palette",
     "resolve_colors",
+    "set_theme",
     # Charts
     "barplot",
     "pointplot",

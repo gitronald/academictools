@@ -62,10 +62,19 @@ plots.barplot(df, "condition", "score", hue="group", seed=0, ax=ax)
 | `heatmap` | A matrix with a colormap, a colorbar, and formatted cell annotations |
 | `swarmplot`, `boxenplot` | Beeswarm and letter-value plots, ported from seaborn so layouts match |
 
-Bootstrap intervals are seeded (`seed=`) so they are reproducible; they will
-not match seaborn's draws. `color_palette(name, n)` samples a matplotlib
-colormap as seaborn does, and `TICKS_STYLE` and `WHITEGRID_STYLE` are rcParams
-equivalents of seaborn's styles (`plt.rcParams.update(plots.TICKS_STYLE)`).
+The helpers apply seaborn's defaults, so a figure redrawn from seaborn with
+the same arguments looks the same: fills at 0.75 saturation, white scatter
+marker edges, hue levels dodged only when they share a category, and a hue
+legend built from labeled artists, so `add_legend` can restyle it. Bootstrap
+intervals are seeded (`seed=`) so they are reproducible; they will not match
+seaborn's draws.
+
+`set_theme("ticks")` (or `"whitegrid"`) sets the rcParams that
+`seaborn.set_theme` does: the axes style, the "notebook" line and font sizes,
+and the "deep" color cycle. `color_palette(name, n)` samples a matplotlib
+colormap as seaborn does and also takes `"dark:<color>"` and
+`"light:<color>"`. `TICKS_STYLE` and `WHITEGRID_STYLE` hold the axes styles
+alone.
 
 ## Versioning
 
