@@ -1,11 +1,11 @@
 ---
 id: 2
 slug: seaborn-parity-labels-caps-points
-status: active
+status: done
 branch: feature/002-seaborn-parity-labels-caps-points
 created: 2026-11-15T20:20:40-08:00
-concluded:
-pr:
+concluded: 2026-11-15T20:28:13-08:00
+pr: https://github.com/gitronald/academictools/pull/10
 ---
 
 # Match seaborn's axis labels, error bar caps, and point plot sizes
@@ -56,8 +56,9 @@ size defaults. Close each one, test it against values recorded from seaborn
   edge width), re-run it in the throwaway environment its docstring names,
   and commit the fixture. seaborn stays out of the dev group.
 - One shared label helper in `_common.py`, used by the categorical helpers,
-  `scatterplot`, `regplot`, `histplot`, and `lineplot` (in `core.py`), so the rule lives in
-  one place.
+  `scatterplot`, `histplot`, and `enhanced_lineplot` (in `core.py`), so the
+  rule lives in one place. `regplot` keeps setting both labels
+  unconditionally: the recording shows seaborn's `regplot` does.
 - Each gap gets tests on the drawn artists against the recorded values.
 
 ### Order
@@ -80,3 +81,29 @@ size defaults. Close each one, test it against values recorded from seaborn
   - Base: `dev` at `5ff3b81`
   - Worktree: `.worktrees/002-seaborn-parity-labels-caps-points`
   - PR: pending
+- **2026-11-15T20:25:59-08:00** — PR opened: https://github.com/gitronald/academictools/pull/10
+- **2026-11-15T20:26:08-08:00** — All three gaps closed, each tested against values recorded from seaborn 0.13.2 (new labels, caps, and points keys in tests/fixtures/parity_reference.json; the four other fixtures and the existing keys re-recorded byte-identical).
+    - Labels: set_axis_labels in _common.py, used by the categorical helpers, scatterplot, histplot, and enhanced_lineplot. The recording showed seaborn's regplot sets both labels unconditionally and visibly, so regplot is unchanged.
+    - Caps: barplot caps are capsize / n category widths (n the dodged hue levels), independent of width; error lines drop solid_capstyle="butt" for matplotlib's default (projecting). pointplot caps already matched (capsize category widths).
+    - pointplot: line and error width 1.8 times lines.linewidth, marker size that times sqrt(2 pi), marker edge 0.75 times; lw= and ms= aliases fold into linewidth and markersize; the legend handle takes the line's marker edge.
+    - Side-by-side renders against seaborn: a shared-x two-row hue bar figure (capsize 0.1, thin error lines) differs in 0.02 percent of pixels, from the bootstrap intervals; a shared-y row of point plots is pixel-identical.
+    - 598 tests pass; ruff, ruff format, and pyrefly clean.
+- **2026-11-15T20:26:18-08:00** — Implemented: 4 commits ahead of `dev`.
+- **2026-11-15T20:28:14-08:00** — Review gate (code-review, medium): 5 candidates from two finders, none confirmed.
+    - Rejected on evidence: the boxenplot median's butt cap (seaborn's own source sets it), linewidth=0 hiding pointplot markers (seaborn gives the same marker size 0), and ls=/c= colliding with pointplot's explicit arguments (it raised before this change too).
+    - Below the confidence cut: a redundant n_hue > 1 condition (20) and regplot's direct label calls (25); the second got a one-line comment anyway, so the exception reads as deliberate.
+    - 598 tests pass; ruff, ruff format, and pyrefly clean.
+
+## Retrospective
+
+- Plan 001's synthetic comparisons drew each helper on a single axes, so
+  none of these three gaps could show there: they need shared axes, several
+  hue levels with thin error lines, or seaborn's size defaults left alone.
+  Rendering real multi-panel figures found them; a shared-axis grid belongs
+  in any future side-by-side check.
+- Recording before fixing paid off again: `regplot` turned out to be the
+  exception to seaborn's label rule, which reading the other plots' source
+  would have missed.
+- Two review candidates were seaborn's own behavior (the boxenplot median
+  cap, markers vanishing at `linewidth=0`). Checking seaborn's source or a
+  one-line probe settled each faster than a verifier would have.

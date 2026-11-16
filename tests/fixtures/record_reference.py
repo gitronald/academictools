@@ -369,6 +369,104 @@ def record_parity() -> dict[str, Any]:
         )
         plt.close(fig)
 
+    # Axis labels: text and visibility on a shared 2x2 grid, and a preset label
+    def _labels(axs: Any) -> list[dict[str, Any]]:
+        return [
+            {
+                "xlabel": ax.get_xlabel(),
+                "xvisible": bool(ax.xaxis.label.get_visible()),
+                "ylabel": ax.get_ylabel(),
+                "yvisible": bool(ax.yaxis.label.get_visible()),
+            }
+            for ax in np.ravel(axs)
+        ]
+
+    label_calls = {
+        "barplot": lambda ax: sns.barplot(df, x="cat", y="val", ax=ax, errorbar=None),
+        "barplot_y": lambda ax: sns.barplot(df, x="val", y="cat", ax=ax, errorbar=None),
+        "pointplot": lambda ax: sns.pointplot(
+            df, x="cat", y="val", ax=ax, errorbar=None
+        ),
+        "boxplot": lambda ax: sns.boxplot(df, x="cat", y="val", ax=ax),
+        "scatterplot": lambda ax: sns.scatterplot(df, x="val", y="val", ax=ax),
+        "histplot": lambda ax: sns.histplot(df, x="val", ax=ax),
+        "regplot": lambda ax: sns.regplot(df, x="val", y="val", ax=ax, ci=None),
+    }
+    labels = {}
+    for name, call in label_calls.items():
+        fig, axs = plt.subplots(2, 2, sharex=True, sharey=True)
+        for ax in np.ravel(axs):
+            call(ax)
+        grid = _labels(axs)
+        plt.close(fig)
+        fig, ax = plt.subplots()
+        ax.set_xlabel("preset x")
+        call(ax)
+        labels[name] = {"grid": grid, "preset": _labels([ax])[0]}
+        plt.close(fig)
+
+    # Bar error bar caps: extent along the category axis, and the line style
+    caps = []
+    for label, kws in [
+        ("plain", {}),
+        ("plain_width", {"width": 0.5}),
+        ("hue", {"hue": "grp"}),
+        ("hue_width", {"hue": "grp", "width": 0.5}),
+        ("hue_is_x", {"hue": "cat"}),
+    ]:
+        fig, ax = plt.subplots()
+        sns.barplot(
+            df,
+            x="cat",
+            y="val",
+            order=["a", "b", "c"],
+            capsize=0.1,
+            seed=0,
+            n_boot=50,
+            ax=ax,
+            **kws,
+        )
+        line = ax.lines[0]
+        xs = np.asarray(line.get_xdata(), float)
+        caps.append(
+            {
+                "case": label,
+                "kws": kws,
+                "cap_width": float(xs[1] - xs[0]),
+                "capstyle": str(line.get_solid_capstyle()),
+                "linewidth": float(line.get_linewidth()),
+            }
+        )
+        plt.close(fig)
+
+    # Point plot line width, marker size, and marker edge width
+    points = []
+    for rc_lw, kws in [(1.5, {}), (2.0, {}), (1.5, {"linewidth": 1.0})]:
+        with plt.rc_context({"lines.linewidth": rc_lw}):
+            fig, ax = plt.subplots()
+            sns.pointplot(df, x="cat", y="val", seed=0, n_boot=50, ax=ax, **kws)
+            err = next(
+                line
+                for line in ax.lines
+                if np.isnan(np.asarray(line.get_xdata(), float)).any()
+                or len(line.get_xdata()) == 2
+            )
+            mark = next(
+                line for line in ax.lines if line.get_marker() not in ("None", None, "")
+            )
+            points.append(
+                {
+                    "rc_linewidth": rc_lw,
+                    "kws": kws,
+                    "linewidth": float(mark.get_linewidth()),
+                    "markersize": float(mark.get_markersize()),
+                    "markeredgewidth": float(mark.get_markeredgewidth()),
+                    "err_linewidth": float(err.get_linewidth()),
+                    "err_capstyle": str(err.get_solid_capstyle()),
+                }
+            )
+            plt.close(fig)
+
     return {
         "versions": _versions(),
         "colors": PARITY_COLORS,
@@ -380,6 +478,9 @@ def record_parity() -> dict[str, Any]:
         "hist_layers": hist_layers,
         "line_colors": line_colors,
         "bars": bars,
+        "labels": labels,
+        "caps": caps,
+        "points": points,
     }
 
 

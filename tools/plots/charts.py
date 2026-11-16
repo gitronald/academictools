@@ -28,6 +28,7 @@ from tools.plots._common import (
     complete_rows,
     get_ax,
     gray_complement,
+    set_axis_labels,
     single_color,
 )
 from tools.plots._seaborn_port import Beeswarm, KDepth, letter_values
@@ -139,14 +140,12 @@ def _finish_categorical(
         ax.set_xticks(range(n), labels)
         ax.set_xlim(-0.5, n - 0.5)
         ax.xaxis.grid(False)
-        ax.set_xlabel(cat.cat_col)
-        ax.set_ylabel(cat.val_col)
+        set_axis_labels(ax, cat.cat_col, cat.val_col)
     else:
         ax.set_yticks(range(n), labels)
         ax.set_ylim(n - 0.5, -0.5)
         ax.yaxis.grid(False)
-        ax.set_ylabel(cat.cat_col)
-        ax.set_xlabel(cat.val_col)
+        set_axis_labels(ax, cat.val_col, cat.cat_col)
     show = legend is True or (legend == "auto" and cat.hue != cat.cat_col)
     if show and cat.hue is not None:
         handles = [handle(hi, c) for hi, c in enumerate(cat.colors)]
@@ -195,7 +194,6 @@ def _err_kws(err_kws: dict[str, Any] | None, color: Any) -> dict[str, Any]:
     base = {
         "color": color,
         "linewidth": 1.5 * plt.rcParams["lines.linewidth"],
-        "solid_capstyle": "butt",
     }
     return {**base, **(err_kws or {})}
 
@@ -246,7 +244,8 @@ def barplot(
         dodge: Place hue levels side by side (False overlaps them); "auto"
             dodges only when ``hue`` differs from the category column
         gap: Shrink each bar by this share of its width, about its center
-        capsize: Error bar cap width, as a fraction of the bar width
+        capsize: Error bar cap width, as a fraction of the category width
+            shared among the dodged hue levels (independent of ``width``)
         err_kws: Keyword arguments for the error bar lines
         legend: Add a legend for ``hue``; "auto" omits it when ``hue`` is the
             category column
@@ -261,7 +260,9 @@ def barplot(
         df, x, y, hue, order, hue_order, orient, palette, color, saturation
     )
     n_hue = len(cat.hues)
-    offsets, bar_width = _dodge_offsets(width, n_hue, cat.resolve_dodge(dodge))
+    dodged = cat.resolve_dodge(dodge) and n_hue > 1
+    offsets, bar_width = _dodge_offsets(width, n_hue, dodged)
+    cap_width = capsize / (n_hue if dodged else 1)
     bar_width *= 1 - gap
     err = _err_kws(err_kws, _ERR_COLOR)
     for (ci, hi), values in cat.groups.items():
@@ -272,7 +273,7 @@ def barplot(
             ax.bar(pos, est, width=bar_width, **bar_kws)
         else:
             ax.barh(pos, est, height=bar_width, **bar_kws)
-        _draw_interval(ax, cat, pos, low, high, capsize * bar_width, err)
+        _draw_interval(ax, cat, pos, low, high, cap_width, err)
     _finish_categorical(ax, cat, legend, _patch_handle(**_patch_props(kwargs)))
     return ax
 
@@ -325,8 +326,9 @@ def pointplot(
         linestyles: Line style, or one per hue level
         dodge: Spread hue levels apart along the category axis: a total
             distance, or True for 0.025 per level
-        markersize: Marker size (default: ``lines.markersize``)
-        linewidth: Line width (default: ``lines.linewidth``)
+        markersize: Marker size (default: ``linewidth`` times sqrt(2 pi))
+        linewidth: Width of the lines and error bars (default: 1.8 times
+            ``lines.linewidth``); markers take an edge 0.75 times as wide
         capsize: Error bar cap width, in category-axis units
         err_kws: Keyword arguments for the error bar lines
         legend: Add a legend for ``hue``; "auto" omits it when ``hue`` is the
@@ -348,8 +350,13 @@ def pointplot(
     style_list: list[Any] = (
         [linestyles] * n_hue if isinstance(linestyles, str) else list(linestyles)
     )
-    lw = linewidth if linewidth is not None else plt.rcParams["lines.linewidth"]
-    ms = markersize if markersize is not None else plt.rcParams["lines.markersize"]
+    # lw= and ms= aliases in kwargs count as linewidth and markersize
+    kwargs = normalize_kwargs(kwargs, Line2D)
+    linewidth = kwargs.pop("linewidth", linewidth)
+    markersize = kwargs.pop("markersize", markersize)
+    lw = linewidth if linewidth is not None else 1.8 * plt.rcParams["lines.linewidth"]
+    ms = markersize if markersize is not None else lw * np.sqrt(2 * np.pi)
+    kwargs.setdefault("markeredgewidth", 0.75 * lw)
     for hi in range(n_hue):
         positions: list[float] = []
         estimates: list[float] = []
@@ -385,6 +392,7 @@ def pointplot(
             marker=marker_list[hi % len(marker_list)],
             linestyle=style_list[hi % len(style_list)],
             markersize=ms,
+            markeredgewidth=kwargs["markeredgewidth"],
             linewidth=lw,
         )
 
@@ -455,6 +463,7 @@ def regplot(
         edge = (100 - ci) / 2
         band_lo, band_hi = np.percentile(boots, [edge, 100 - edge], axis=0)
         ax.fill_between(grid, band_lo, band_hi, color=rgb, alpha=0.15, linewidth=0)
+    # seaborn's regplot sets both labels unconditionally, unlike its other plots
     ax.set_xlabel(x)
     ax.set_ylabel(y)
     return ax
@@ -516,8 +525,7 @@ def scatterplot(
         if legend:
             handles = [_scatter_handle(c, kwargs) for c in colors]
             add_legend_artists(ax, handles, levels, hue)
-    ax.set_xlabel(x)
-    ax.set_ylabel(y)
+    set_axis_labels(ax, x, y)
     return ax
 
 
@@ -678,8 +686,7 @@ def histplot(
         handle = _patch_handle(**_patch_props(bar_kws))
         handles = [handle(i, (*c, alpha)) for i, c in enumerate(colors)]
         add_legend_artists(ax, handles, levels, hue)
-    ax.set_xlabel(x)
-    ax.set_ylabel(stat.capitalize())
+    set_axis_labels(ax, x, stat.capitalize())
     return ax
 
 
