@@ -1,10 +1,10 @@
 ---
 id: 2
 slug: seaborn-parity-labels-caps-points
-status: implemented
+status: done
 branch: feature/002-seaborn-parity-labels-caps-points
 created: 2026-11-15T20:20:40-08:00
-concluded:
+concluded: 2026-11-15T20:28:13-08:00
 pr: https://github.com/gitronald/academictools/pull/10
 ---
 
@@ -93,3 +93,17 @@ size defaults. Close each one, test it against values recorded from seaborn
     - Rejected on evidence: the boxenplot median's butt cap (seaborn's own source sets it), linewidth=0 hiding pointplot markers (seaborn gives the same marker size 0), and ls=/c= colliding with pointplot's explicit arguments (it raised before this change too).
     - Below the confidence cut: a redundant n_hue > 1 condition (20) and regplot's direct label calls (25); the second got a one-line comment anyway, so the exception reads as deliberate.
     - 598 tests pass; ruff, ruff format, and pyrefly clean.
+
+## Retrospective
+
+- Plan 001's synthetic comparisons drew each helper on a single axes, so
+  none of these three gaps could show there: they need shared axes, several
+  hue levels with thin error lines, or seaborn's size defaults left alone.
+  Rendering real multi-panel figures found them; a shared-axis grid belongs
+  in any future side-by-side check.
+- Recording before fixing paid off again: `regplot` turned out to be the
+  exception to seaborn's label rule, which reading the other plots' source
+  would have missed.
+- Two review candidates were seaborn's own behavior (the boxenplot median
+  cap, markers vanishing at `linewidth=0`). Checking seaborn's source or a
+  one-line probe settled each faster than a verifier would have.
