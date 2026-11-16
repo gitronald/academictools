@@ -89,3 +89,7 @@ size defaults. Close each one, test it against values recorded from seaborn
     - Side-by-side renders against seaborn: a shared-x two-row hue bar figure (capsize 0.1, thin error lines) differs in 0.02 percent of pixels, from the bootstrap intervals; a shared-y row of point plots is pixel-identical.
     - 598 tests pass; ruff, ruff format, and pyrefly clean.
 - **2026-11-15T20:26:18-08:00** — Implemented: 4 commits ahead of `dev`.
+- **2026-11-15T20:28:14-08:00** — Review gate (code-review, medium): 5 candidates from two finders, none confirmed.
+    - Rejected on evidence: the boxenplot median's butt cap (seaborn's own source sets it), linewidth=0 hiding pointplot markers (seaborn gives the same marker size 0), and ls=/c= colliding with pointplot's explicit arguments (it raised before this change too).
+    - Below the confidence cut: a redundant n_hue > 1 condition (20) and regplot's direct label calls (25); the second got a one-line comment anyway, so the exception reads as deliberate.
+    - 598 tests pass; ruff, ruff format, and pyrefly clean.
