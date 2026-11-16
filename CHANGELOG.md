@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-11-15
+
 ### Changed
 
 - The plotting helpers label the axes as seaborn does: an axis that already has a label keeps it, and a new label is visible only when the axis shows tick labels, so the inner panels of a grid with shared axes carry no visible label. `regplot` still sets both labels, as seaborn's does.
