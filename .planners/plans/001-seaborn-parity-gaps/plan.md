@@ -1,10 +1,10 @@
 ---
 id: 1
 slug: seaborn-parity-gaps
-status: active
+status: done
 branch: feature/001-seaborn-parity-gaps
 created: 2026-11-15T18:35:50-08:00
-concluded:
+concluded: 2026-11-15T18:58:18-08:00
 pr: https://github.com/gitronald/academictools/pull/8
 ---
 
@@ -116,3 +116,18 @@ Close each one, test it, and release a patch version.
       - Conscious no-ops: the unfilled-box legend handle repeating _patch_handle's rectangle (about 3 lines), and the auto line color and dodge/gap preamble repeated across three helpers (2-3 lines each).
       - Rejected after verification as seaborn's own behavior: boxen legend ignoring box_kws edges, and alias collisions in line_kws and flier_kws.
       - 574 tests pass; ruff, ruff format, and pyrefly clean.
+
+## Retrospective
+
+- Drawing each argument set both ways and diffing the pixels found what
+  reading the seaborn source had not: four of the fifteen gaps (the auto line
+  color, row-order scatter colors, fill-only histogram alpha, and swarm
+  zorder) showed up only in the side-by-side renders.
+- Recording seaborn's values first, as plan 000 did, again let each fix be
+  checked to zero difference without seaborn in the dev group; the existing
+  fixtures re-recorded byte-identical, which confirmed the environment.
+- The legend proxies seaborn adds to the axes count in `ax.patches` and
+  `ax.lines`. Tests that count artists need a filter for them; callers that
+  restyle `ax.patches` see the zero-size proxies too, as they do with seaborn.
+- Bootstrap intervals remain the one place a figure cannot match seaborn's,
+  by design (seeded resampling); point plots show it most.
