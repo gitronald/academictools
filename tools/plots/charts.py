@@ -223,7 +223,7 @@ def barplot(
     ax: Axes | None = None,
     **kwargs: Any,
 ) -> Axes:
-    """Bar plot of an estimate per category, with a bootstrap interval.
+    """Bar plot of an estimate per category, with an interval (bootstrap by default).
 
     Args:
         df: Polars DataFrame
