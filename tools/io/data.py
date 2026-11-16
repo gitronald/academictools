@@ -683,7 +683,8 @@ def save_fig(
         overwrite: Whether to overwrite existing files
         png: Whether to save as .png
         tiff: Whether to save as .tiff
-        pdf: Whether to save as .pdf
+        pdf: Whether to save as .pdf. The PDF carries no creation date, so
+            saving the same figure twice writes the same bytes.
 
     Raises:
         ValueError: If file extension is not .png, .tiff, or .pdf
@@ -714,6 +715,7 @@ def save_fig(
             dict(
                 fname=fp.replace(fp_ext, ".pdf"),
                 bbox_inches="tight",
+                metadata={"CreationDate": None},
             )
         )
 

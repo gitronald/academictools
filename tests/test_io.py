@@ -1,6 +1,7 @@
 import bz2
 import os
 import tempfile
+import time
 
 import polars as pl
 import pytest
@@ -567,6 +568,20 @@ class TestSaveFig:
 
         save_fig(fig, filepath, png=False, pdf=True)
         assert os.path.exists(filepath)
+
+    def test_pdf_bytes_repeat(self, temp_dir):
+        def save(name):
+            fig = Figure()
+            fig.add_subplot(111).plot([1, 2], [3, 4])
+            path = os.path.join(temp_dir, name)
+            save_fig(fig, path, png=False, pdf=True)
+            return open(path, "rb").read()
+
+        first = save("a.pdf")
+        time.sleep(1.1)
+        second = save("b.pdf")
+        assert b"/CreationDate" not in first
+        assert first == second
 
     def test_invalid_extension(self, temp_dir):
         fig = Figure()
