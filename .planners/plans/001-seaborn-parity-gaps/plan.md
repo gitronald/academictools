@@ -111,3 +111,8 @@ Close each one, test it, and release a patch version.
       - The legend proxies live on the axes, as seaborn's do, so they count in ax.patches and ax.lines; three existing tests now filter them out.
       - Side-by-side renders against seaborn on synthetic data with real-world argument sets: scatter (with and without hue) and histogram identical to the pixel; bars, boxes, letter values, heatmaps, regplot, and swarm over bars under 1.2 percent of pixels; point plots 3 to 6 percent, from the bootstrap intervals, which differ by design.
       - 568 tests pass; ruff and pyrefly clean.
+- **2026-11-15T18:58:41-08:00** — Review gate (code-review, medium): 18 candidates, 13 verified, 6 kept; review posted on the PR.
+      - Review follow-up, fixed with regression tests (2793a2f): a scatter legend crash on edgecolor="face" (confirmed by probe); an empty titled legend and warning on an empty hue frame; kwargs aliases handled three ways, now one normalize_kwargs call in scatterplot and histplot, so ec= and lw= suppress the defaults; scatter hue codes from replace_strict instead of a per-row loop.
+      - Conscious no-ops: the unfilled-box legend handle repeating _patch_handle's rectangle (about 3 lines), and the auto line color and dodge/gap preamble repeated across three helpers (2-3 lines each).
+      - Rejected after verification as seaborn's own behavior: boxen legend ignoring box_kws edges, and alias collisions in line_kws and flier_kws.
+      - 574 tests pass; ruff, ruff format, and pyrefly clean.
