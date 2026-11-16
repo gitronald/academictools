@@ -463,6 +463,7 @@ def regplot(
         edge = (100 - ci) / 2
         band_lo, band_hi = np.percentile(boots, [edge, 100 - edge], axis=0)
         ax.fill_between(grid, band_lo, band_hi, color=rgb, alpha=0.15, linewidth=0)
+    # seaborn's regplot sets both labels unconditionally, unlike its other plots
     ax.set_xlabel(x)
     ax.set_ylabel(y)
     return ax
