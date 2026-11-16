@@ -5,7 +5,7 @@ status: active
 branch: feature/002-seaborn-parity-labels-caps-points
 created: 2026-11-15T20:20:40-08:00
 concluded:
-pr:
+pr: https://github.com/gitronald/academictools/pull/10
 ---
 
 # Match seaborn's axis labels, error bar caps, and point plot sizes
@@ -81,3 +81,4 @@ size defaults. Close each one, test it against values recorded from seaborn
   - Base: `dev` at `5ff3b81`
   - Worktree: `.worktrees/002-seaborn-parity-labels-caps-points`
   - PR: pending
+- **2026-11-15T20:25:59-08:00** — PR opened: https://github.com/gitronald/academictools/pull/10
