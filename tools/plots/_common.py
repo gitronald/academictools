@@ -73,4 +73,5 @@ def add_legend_artists(
     for handle, label in zip(handles, labels):
         handle.set_label(str(label))
         ax.add_artist(handle)
-    ax.legend(title=title)
+    if handles:
+        ax.legend(title=title)

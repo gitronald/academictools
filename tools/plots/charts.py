@@ -497,7 +497,7 @@ def scatterplot(
     """
     ax = get_ax(ax)
     data = complete_rows(df, x, y, hue)
-    kwargs = _scatter_edges(kwargs)
+    kwargs = _scatter_edges(normalize_kwargs(kwargs, PathCollection))
     if hue is None:
         rgb = single_color(color)
         ax.scatter(data.get_column(x), data.get_column(y), color=rgb, **kwargs)
@@ -505,9 +505,12 @@ def scatterplot(
         levels = category_levels(data.get_column(hue), hue_order)
         colors = resolve_colors(levels, palette)
         data = data.filter(pl.col(hue).is_in(levels))
-        lookup = {level: i for i, level in enumerate(levels)}
-        codes = [lookup[v] for v in data.get_column(hue).to_list()]
-        point_colors = np.asarray(colors)[codes] if codes else np.empty((0, 3))
+        codes = (
+            data.get_column(hue)
+            .replace_strict(levels, list(range(len(levels))), return_dtype=pl.Int64)
+            .to_numpy()
+        )
+        point_colors = np.asarray(colors)[codes] if codes.size else np.empty((0, 3))
         # One collection in row order, so levels interleave as the rows do
         ax.scatter(data.get_column(x), data.get_column(y), color=point_colors, **kwargs)
         if legend:
@@ -519,10 +522,16 @@ def scatterplot(
 
 
 def _scatter_handle(color: RGB, kwargs: dict[str, Any]) -> Line2D:
-    """A legend marker drawn like the scatter's points."""
+    """A legend marker drawn like the scatter's points.
+
+    ``kwargs`` are the scatter's, alias-normalized; an edge color of "face"
+    takes the marker's own color, as on the points.
+    """
     sizes = np.atleast_1d(kwargs.get("s", plt.rcParams["lines.markersize"] ** 2))
-    edge = kwargs.get("edgecolor", kwargs.get("edgecolors", kwargs.get("ec")))
-    width = kwargs.get("linewidth", kwargs.get("linewidths", kwargs.get("lw")))
+    edge = kwargs.get("edgecolor")
+    if edge is None or (isinstance(edge, str) and edge == "face"):
+        edge = color
+    width = kwargs.get("linewidth")
     return Line2D(
         [],
         [],
@@ -530,19 +539,20 @@ def _scatter_handle(color: RGB, kwargs: dict[str, Any]) -> Line2D:
         linestyle="",
         marker=kwargs.get("marker", plt.rcParams["scatter.marker"]),
         markersize=float(np.sqrt(np.median(sizes))),
-        markeredgecolor=edge if edge is not None else color,
+        markeredgecolor=edge,
         markeredgewidth=width if width is not None else 0,
         alpha=kwargs.get("alpha"),
     )
 
 
 def _scatter_edges(kwargs: dict[str, Any]) -> dict[str, Any]:
-    """Add seaborn's default marker edge color and width to scatter kwargs."""
+    """Add seaborn's default marker edge color and width to alias-normalized
+    scatter kwargs."""
     marker = MarkerStyle(kwargs.get("marker", plt.rcParams["scatter.marker"]))
     out = dict(kwargs)
-    if marker.is_filled() and not {"edgecolor", "edgecolors", "ec"} & out.keys():
+    if marker.is_filled() and "edgecolor" not in out:
         out["edgecolor"] = "w"
-    if not {"linewidth", "linewidths", "lw"} & out.keys():
+    if "linewidth" not in out:
         sizes = np.atleast_1d(out.get("s", plt.rcParams["lines.markersize"] ** 2))
         out["linewidth"] = 0.08 * np.sqrt(np.percentile(sizes, 10))
     return out
@@ -615,7 +625,8 @@ def histplot(
         colors = resolve_colors(levels, palette)
     if alpha is None:
         alpha = 0.5 if hue is not None and multiple == "layer" else 0.75
-    fixed_width = bool({"linewidth", "linewidths", "lw"} & kwargs.keys())
+    kwargs = normalize_kwargs(kwargs, Rectangle)
+    fixed_width = "linewidth" in kwargs
     base = np.zeros(len(widths))
     heights_by_level: list[np.ndarray] = []
     for level in levels:

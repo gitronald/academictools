@@ -304,3 +304,42 @@ class TestDodgeAndSwarm:
     def test_swarm_points_above_bars(self, frame):
         ax = swarmplot(frame, "cat", "val", size=2)
         assert ax.collections[0].get_zorder() == 3
+
+
+class TestReviewFollowUp:
+    def test_scatter_face_edge_with_hue_draws(self, frame):
+        ax = scatterplot(frame, "val", "val", hue="grp", edgecolor="face")
+        ax.figure.canvas.draw()
+        handles, _ = ax.get_legend_handles_labels()
+        line = handles[0]
+        assert isinstance(line, Line2D)
+        assert to_rgba(line.get_markeredgecolor()) == to_rgba(line.get_color())
+
+    def test_scatter_aliases_suppress_defaults(self, frame):
+        ax = scatterplot(frame, "val", "val", s=4, ec="black", lw=0.5)
+        points = ax.collections[0]
+        np.testing.assert_allclose(np.asarray(points.get_linewidth()), [0.5])
+        np.testing.assert_allclose(np.asarray(points.get_edgecolor())[0], [0, 0, 0, 1])
+
+    def test_hist_aliases(self, frame):
+        ax = histplot(frame, "val", bins=80, lw=2, ec="black")
+        bar = ax.patches[0]
+        assert bar.get_linewidth() == 2
+        assert to_rgba(bar.get_edgecolor()) == (0.0, 0.0, 0.0, 1.0)
+
+    @pytest.mark.parametrize(
+        "draw",
+        [
+            lambda df: barplot(df, "cat", "val", hue="grp", errorbar=None),
+            lambda df: scatterplot(df, "val", "val", hue="grp"),
+            lambda df: histplot(df, "val", hue="grp", bins=3),
+        ],
+        ids=["bar", "scatter", "hist"],
+    )
+    def test_empty_hue_frame_has_no_legend(self, frame, draw):
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings("error", message="No artists with labels")
+            ax = draw(frame.clear())
+        assert ax.get_legend() is None
