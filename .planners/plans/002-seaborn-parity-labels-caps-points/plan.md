@@ -1,8 +1,8 @@
 ---
 id: 2
 slug: seaborn-parity-labels-caps-points
-status: draft
-branch:
+status: active
+branch: feature/002-seaborn-parity-labels-caps-points
 created: 2026-11-15T20:20:40-08:00
 concluded:
 pr:
@@ -72,3 +72,11 @@ size defaults. Close each one, test it against values recorded from seaborn
 
 - `heatmap` and calendar heatmap labels, which follow their own rules.
 - Bootstrap intervals, which differ from seaborn's by design.
+
+## Log
+
+- **2026-11-15T20:21:10-08:00** — Activated.
+  - Branch: `feature/002-seaborn-parity-labels-caps-points`
+  - Base: `dev` at `5ff3b81`
+  - Worktree: `.worktrees/002-seaborn-parity-labels-caps-points`
+  - PR: pending
