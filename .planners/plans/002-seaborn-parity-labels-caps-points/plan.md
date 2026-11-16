@@ -1,7 +1,7 @@
 ---
 id: 2
 slug: seaborn-parity-labels-caps-points
-status: active
+status: implemented
 branch: feature/002-seaborn-parity-labels-caps-points
 created: 2026-11-15T20:20:40-08:00
 concluded:
@@ -88,3 +88,4 @@ size defaults. Close each one, test it against values recorded from seaborn
     - pointplot: line and error width 1.8 times lines.linewidth, marker size that times sqrt(2 pi), marker edge 0.75 times; lw= and ms= aliases fold into linewidth and markersize; the legend handle takes the line's marker edge.
     - Side-by-side renders against seaborn: a shared-x two-row hue bar figure (capsize 0.1, thin error lines) differs in 0.02 percent of pixels, from the bootstrap intervals; a shared-y row of point plots is pixel-identical.
     - 598 tests pass; ruff, ruff format, and pyrefly clean.
+- **2026-11-15T20:26:18-08:00** — Implemented: 4 commits ahead of `dev`.
