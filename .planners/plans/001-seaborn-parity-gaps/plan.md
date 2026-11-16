@@ -1,8 +1,8 @@
 ---
 id: 1
 slug: seaborn-parity-gaps
-status: draft
-branch:
+status: active
+branch: feature/001-seaborn-parity-gaps
 created: 2026-11-15T18:35:50-08:00
 concluded:
 pr:
@@ -97,3 +97,11 @@ Close each one, test it, and release a patch version.
 - seaborn features no gap above names (`stat` options, kde, `jitter`, and so
   on).
 - Any plotting not in seaborn.
+
+## Log
+
+- **2026-11-15T18:37:18-08:00** — Activated.
+  - Branch: `feature/001-seaborn-parity-gaps`
+  - Base: `dev` at `3d2ba38`
+  - Worktree: `.worktrees/001-seaborn-parity-gaps`
+  - PR: pending
