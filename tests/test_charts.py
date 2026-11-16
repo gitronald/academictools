@@ -47,8 +47,16 @@ LETTER_VALUES = _load("letter_values_reference.json")
 PALETTES = _load("palettes_reference.json")
 
 
+def _is_legend_artist(artist) -> bool:
+    """Legend artists carry a level's label; drawn ones have none or "_child"."""
+    label = artist.get_label()
+    return bool(label) and not label.startswith("_")
+
+
 def _bars(ax: Axes) -> list[Rectangle]:
-    return [p for p in ax.patches if isinstance(p, Rectangle)]
+    return [
+        p for p in ax.patches if isinstance(p, Rectangle) and not _is_legend_artist(p)
+    ]
 
 
 @pytest.fixture(autouse=True)
@@ -276,7 +284,7 @@ class TestBarAndPointPlots:
         ax = barplot(
             groups_df, "cat", "val", hue="grp", capsize=0.2, seed=0, order=["c", "a"]
         )
-        assert len(ax.patches) == 4
+        assert len(_bars(ax)) == 4
         widths = {round(p.get_width(), 6) for p in _bars(ax)}
         assert widths == {0.4}
         # one interval line plus two caps per bar
@@ -290,7 +298,11 @@ class TestBarAndPointPlots:
 
     def test_point_plot_with_preset(self, groups_df):
         ax = pointplot(groups_df, "cat", "val", hue="grp", seed=0, **pointplot_kws)
-        point_lines = [line for line in ax.lines if line.get_marker() == "."]
+        point_lines = [
+            line
+            for line in ax.lines
+            if line.get_marker() == "." and not _is_legend_artist(line)
+        ]
         assert len(point_lines) == 2
         xs = np.asarray(point_lines[0].get_xdata())
         # dodge=0.2 over two levels -> -0.1 and +0.1 around each category
@@ -321,7 +333,14 @@ class TestOtherHelpers:
 
     def test_scatter_hue_legend(self, groups_df):
         ax = scatterplot(groups_df, "val", "val", hue="grp", palette="Set2")
-        assert len(ax.collections) == 2
+        # one collection, colored row by row, as seaborn draws it
+        assert len(ax.collections) == 1
+        kept = groups_df.drop_nulls(["val", "grp"])
+        set2 = dict(zip(["g1", "g2"], color_palette("Set2", 2), strict=True))
+        expected = [set2[g] for g in kept["grp"].to_list()]
+        np.testing.assert_allclose(
+            np.asarray(ax.collections[0].get_facecolor())[:, :3], expected
+        )
         legend = ax.get_legend()
         assert legend is not None
         assert legend.get_title().get_text() == "grp"
@@ -356,7 +375,7 @@ class TestOtherHelpers:
 
     def test_boxplot_hue_horizontal(self, groups_df):
         ax = boxplot(groups_df, "val", "cat", hue="grp", orient="y")
-        assert len(ax.patches) == 6
+        assert len([p for p in ax.patches if not _is_legend_artist(p)]) == 6
         assert [t.get_text() for t in ax.get_yticklabels()] == ["a", "b", "c"]
 
     def test_boxen_hue_and_rejects_bad_method(self, groups_df):
