@@ -106,3 +106,8 @@ Close each one, test it, and release a patch version.
   - Worktree: `.worktrees/001-seaborn-parity-gaps`
   - PR: pending
 - **2026-11-15T18:51:48-08:00** — PR opened: https://github.com/gitronald/academictools/pull/8
+- **2026-11-15T18:52:02-08:00** — All eleven gaps closed, each tested against values recorded from seaborn 0.13.2 (tests/fixtures/parity_reference.json, from record_reference.py; the four existing fixtures re-recorded byte-identical) or on the drawn artists (tests/test_seaborn_parity.py, 100 cases).
+      - Two more gaps found while closing these, both fixed: seaborn's box and letter-value plots default to linecolor="auto" (a gray at 0.6 times the darkest fill's lightness), and scatterplot with hue draws one collection in row order, so levels interleave rather than the last level covering the rest. Also matched: histplot's alpha fades the fill and not the edges, and swarmplot points sit at zorder 3, above bars.
+      - The legend proxies live on the axes, as seaborn's do, so they count in ax.patches and ax.lines; three existing tests now filter them out.
+      - Side-by-side renders against seaborn on synthetic data with real-world argument sets: scatter (with and without hue) and histogram identical to the pixel; bars, boxes, letter values, heatmaps, regplot, and swarm over bars under 1.2 percent of pixels; point plots 3 to 6 percent, from the bootstrap intervals, which differ by design.
+      - 568 tests pass; ruff and pyrefly clean.
