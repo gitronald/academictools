@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- `errorbar=("wilson", level)` in `estimate_interval`, `barplot`, and `pointplot`: the Wilson score interval for the proportion of ones in 0/1 values, a closed form that stays inside [0, 1] and is not zero-width at 0 or n successes. It takes the mean estimator and raises `ValueError` on values other than 0 and 1. `wilson_interval` computes it directly.
+
 ## [0.9.4] - 2026-11-16
 
 ### Changed
