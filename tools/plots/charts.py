@@ -15,18 +15,33 @@ import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 from matplotlib.axes import Axes
+from matplotlib.cbook import normalize_kwargs
 from matplotlib.collections import PatchCollection, PathCollection, QuadMesh
 from matplotlib.colors import LinearSegmentedColormap, Normalize, to_rgba_array
 from matplotlib.lines import Line2D
-from matplotlib.patches import Patch, Rectangle
+from matplotlib.markers import MarkerStyle
+from matplotlib.patches import Rectangle
 
-from tools.plots._common import category_levels, complete_rows, get_ax, single_color
+from tools.plots._common import (
+    add_legend_artists,
+    category_levels,
+    complete_rows,
+    get_ax,
+    gray_complement,
+    single_color,
+)
 from tools.plots._seaborn_port import Beeswarm, KDepth, letter_values
 from tools.plots.estimate import ErrorBar, Estimator, bootstrap, estimate_interval
-from tools.plots.palettes import RGB, Palette, resolve_colors
+from tools.plots.palettes import RGB, Palette, desaturate, resolve_colors
 
 Orient = Literal["x", "y"]
 Seed = int | np.random.Generator | None
+# "auto" dodges hue levels only when they would overlap: when ``hue`` differs
+# from the category column, so a category holds more than one level.
+Dodge = bool | Literal["auto"]
+# "auto" draws the hue legend unless ``hue`` is the category column, where the
+# category axis already labels every color.
+LegendSpec = bool | Literal["auto"]
 
 # Error bar defaults, as seaborn draws them
 _ERR_COLOR = ".26"
@@ -62,6 +77,15 @@ class _Categorical:
         """Map (category position, value) to (x, y) for this orientation."""
         return (pos, val) if self.orient == "x" else (val, pos)
 
+    def resolve_dodge(self, dodge: Dodge) -> bool:
+        """Whether to dodge: as given, or for "auto", when some category holds
+        more than one hue level."""
+        if dodge != "auto":
+            return bool(dodge)
+        if self.hue is None:
+            return False
+        return len({ci for ci, _ in self.groups}) != len(self.groups)
+
 
 def _categorical(
     df: pl.DataFrame,
@@ -73,6 +97,7 @@ def _categorical(
     orient: Orient,
     palette: Palette,
     color: Any,
+    saturation: float = 1.0,
 ) -> _Categorical:
     if orient not in ("x", "y"):
         raise ValueError(f"orient must be 'x' or 'y', got {orient!r}")
@@ -85,6 +110,7 @@ def _categorical(
     else:
         hues = [None]
         colors = [single_color(color)]
+    colors = [desaturate(c, saturation) for c in colors]
     groups: dict[tuple[int, int], np.ndarray] = {}
     for ci, cat in enumerate(cats):
         sub = data.filter(pl.col(cat_col) == cat)
@@ -97,9 +123,16 @@ def _categorical(
 
 
 def _finish_categorical(
-    ax: Axes, cat: _Categorical, legend: bool, handle: Callable[[int, RGB], Any]
+    ax: Axes,
+    cat: _Categorical,
+    legend: LegendSpec,
+    handle: Callable[[int, RGB], Rectangle | Line2D],
 ) -> None:
-    """Label the axes, set categorical ticks and limits, and add a hue legend."""
+    """Label the axes, set categorical ticks and limits, and add a hue legend.
+
+    The legend is built from one labeled artist per hue level, added to the
+    axes, so a later ``ax.legend()`` or ``add_legend`` finds the same entries.
+    """
     n = len(cat.cats)
     labels = [str(c) for c in cat.cats]
     if cat.orient == "x":
@@ -114,13 +147,25 @@ def _finish_categorical(
         ax.yaxis.grid(False)
         ax.set_ylabel(cat.cat_col)
         ax.set_xlabel(cat.val_col)
-    if legend and cat.hue is not None:
+    show = legend is True or (legend == "auto" and cat.hue != cat.cat_col)
+    if show and cat.hue is not None:
         handles = [handle(hi, c) for hi, c in enumerate(cat.colors)]
-        ax.legend(handles, [str(h) for h in cat.hues], title=cat.hue)
+        add_legend_artists(ax, handles, cat.hues, cat.hue)
 
 
-def _patch_handle(hi: int, color: RGB) -> Patch:
-    return Patch(facecolor=color, edgecolor=_ERR_COLOR, linewidth=0.75)
+def _patch_props(kwargs: dict[str, Any]) -> dict[str, Any]:
+    """The keyword arguments a ``Rectangle`` legend handle can take."""
+    return {k: v for k, v in kwargs.items() if hasattr(Rectangle, f"set_{k}")}
+
+
+def _patch_handle(**props: Any) -> Callable[[int, Any], Rectangle]:
+    """Legend handles: unseen rectangles in each level's color."""
+
+    def handle(hi: int, color: Any) -> Rectangle:
+        patch_kws: dict[str, Any] = {"facecolor": color, **props}
+        return Rectangle((0, 0), 0, 0, **patch_kws)
+
+    return handle
 
 
 def _marker_handle(hi: int, color: RGB) -> Line2D:
@@ -170,11 +215,13 @@ def barplot(
     orient: Orient = "x",
     palette: Palette = None,
     color: Any = None,
+    saturation: float = 0.75,
     width: float = 0.8,
-    dodge: bool = True,
+    dodge: Dodge = "auto",
+    gap: float = 0.0,
     capsize: float = 0.0,
     err_kws: dict[str, Any] | None = None,
-    legend: bool = True,
+    legend: LegendSpec = "auto",
     ax: Axes | None = None,
     **kwargs: Any,
 ) -> Axes:
@@ -194,11 +241,15 @@ def barplot(
         orient: "x" for vertical bars, "y" for horizontal
         palette: Hue colors: colormap name, list, or dict (see ``resolve_colors``)
         color: Bar color without hue
+        saturation: Share of the colors' saturation to fill the bars with
         width: Total width of the bars at each category
-        dodge: Place hue levels side by side (False overlaps them)
+        dodge: Place hue levels side by side (False overlaps them); "auto"
+            dodges only when ``hue`` differs from the category column
+        gap: Shrink each bar by this share of its width, about its center
         capsize: Error bar cap width, as a fraction of the bar width
         err_kws: Keyword arguments for the error bar lines
-        legend: Add a legend for ``hue``
+        legend: Add a legend for ``hue``; "auto" omits it when ``hue`` is the
+            category column
         ax: Axes to draw on (default: current axes)
         **kwargs: Passed to ``Axes.bar`` / ``Axes.barh``
 
@@ -206,9 +257,12 @@ def barplot(
         The Axes drawn on
     """
     ax = get_ax(ax)
-    cat = _categorical(df, x, y, hue, order, hue_order, orient, palette, color)
+    cat = _categorical(
+        df, x, y, hue, order, hue_order, orient, palette, color, saturation
+    )
     n_hue = len(cat.hues)
-    offsets, bar_width = _dodge_offsets(width, n_hue, dodge)
+    offsets, bar_width = _dodge_offsets(width, n_hue, cat.resolve_dodge(dodge))
+    bar_width *= 1 - gap
     err = _err_kws(err_kws, _ERR_COLOR)
     for (ci, hi), values in cat.groups.items():
         est, low, high = estimate_interval(values, estimator, errorbar, n_boot, seed)
@@ -219,7 +273,7 @@ def barplot(
         else:
             ax.barh(pos, est, height=bar_width, **bar_kws)
         _draw_interval(ax, cat, pos, low, high, capsize * bar_width, err)
-    _finish_categorical(ax, cat, legend, _patch_handle)
+    _finish_categorical(ax, cat, legend, _patch_handle(**_patch_props(kwargs)))
     return ax
 
 
@@ -245,7 +299,7 @@ def pointplot(
     linewidth: float | None = None,
     capsize: float = 0.0,
     err_kws: dict[str, Any] | None = None,
-    legend: bool = True,
+    legend: LegendSpec = "auto",
     ax: Axes | None = None,
     **kwargs: Any,
 ) -> Axes:
@@ -275,7 +329,8 @@ def pointplot(
         linewidth: Line width (default: ``lines.linewidth``)
         capsize: Error bar cap width, in category-axis units
         err_kws: Keyword arguments for the error bar lines
-        legend: Add a legend for ``hue``
+        legend: Add a legend for ``hue``; "auto" omits it when ``hue`` is the
+            category column
         ax: Axes to draw on
         **kwargs: Passed to ``Axes.plot`` for the lines (e.g. ``alpha``)
 
@@ -329,6 +384,8 @@ def pointplot(
             color=c,
             marker=marker_list[hi % len(marker_list)],
             linestyle=style_list[hi % len(style_list)],
+            markersize=ms,
+            linewidth=lw,
         )
 
     _finish_categorical(ax, cat, legend, handle)
@@ -418,6 +475,10 @@ def scatterplot(
 ) -> Axes:
     """Scatter plot, one color per ``hue`` level.
 
+    Filled markers get seaborn's edges unless ``edgecolor`` or ``linewidth``
+    is given: white, ``0.08 * sqrt(s)`` points wide (``s`` at its 10th
+    percentile when sizes vary).
+
     Args:
         df: Polars DataFrame
         x: Column for the x-axis
@@ -426,7 +487,8 @@ def scatterplot(
         hue_order: Hue level order
         palette: Hue colors
         color: Point color without hue
-        legend: Add a legend for ``hue``
+        legend: Add a legend for ``hue``; "auto" omits it when ``hue`` is the
+            category column
         ax: Axes to draw on
         **kwargs: Passed to ``Axes.scatter``
 
@@ -435,25 +497,55 @@ def scatterplot(
     """
     ax = get_ax(ax)
     data = complete_rows(df, x, y, hue)
+    kwargs = _scatter_edges(kwargs)
     if hue is None:
         rgb = single_color(color)
         ax.scatter(data.get_column(x), data.get_column(y), color=rgb, **kwargs)
     else:
         levels = category_levels(data.get_column(hue), hue_order)
-        for level, rgb in zip(levels, resolve_colors(levels, palette)):
-            part = data.filter(pl.col(hue) == level)
-            ax.scatter(
-                part.get_column(x),
-                part.get_column(y),
-                color=rgb,
-                label=str(level),
-                **kwargs,
-            )
+        colors = resolve_colors(levels, palette)
+        data = data.filter(pl.col(hue).is_in(levels))
+        lookup = {level: i for i, level in enumerate(levels)}
+        codes = [lookup[v] for v in data.get_column(hue).to_list()]
+        point_colors = np.asarray(colors)[codes] if codes else np.empty((0, 3))
+        # One collection in row order, so levels interleave as the rows do
+        ax.scatter(data.get_column(x), data.get_column(y), color=point_colors, **kwargs)
         if legend:
-            ax.legend(title=hue)
+            handles = [_scatter_handle(c, kwargs) for c in colors]
+            add_legend_artists(ax, handles, levels, hue)
     ax.set_xlabel(x)
     ax.set_ylabel(y)
     return ax
+
+
+def _scatter_handle(color: RGB, kwargs: dict[str, Any]) -> Line2D:
+    """A legend marker drawn like the scatter's points."""
+    sizes = np.atleast_1d(kwargs.get("s", plt.rcParams["lines.markersize"] ** 2))
+    edge = kwargs.get("edgecolor", kwargs.get("edgecolors", kwargs.get("ec")))
+    width = kwargs.get("linewidth", kwargs.get("linewidths", kwargs.get("lw")))
+    return Line2D(
+        [],
+        [],
+        color=color,
+        linestyle="",
+        marker=kwargs.get("marker", plt.rcParams["scatter.marker"]),
+        markersize=float(np.sqrt(np.median(sizes))),
+        markeredgecolor=edge if edge is not None else color,
+        markeredgewidth=width if width is not None else 0,
+        alpha=kwargs.get("alpha"),
+    )
+
+
+def _scatter_edges(kwargs: dict[str, Any]) -> dict[str, Any]:
+    """Add seaborn's default marker edge color and width to scatter kwargs."""
+    marker = MarkerStyle(kwargs.get("marker", plt.rcParams["scatter.marker"]))
+    out = dict(kwargs)
+    if marker.is_filled() and not {"edgecolor", "edgecolors", "ec"} & out.keys():
+        out["edgecolor"] = "w"
+    if not {"linewidth", "linewidths", "lw"} & out.keys():
+        sizes = np.atleast_1d(out.get("s", plt.rcParams["lines.markersize"] ** 2))
+        out["linewidth"] = 0.08 * np.sqrt(np.percentile(sizes, 10))
+    return out
 
 
 HistStat = Literal["count", "frequency", "density", "probability", "percent"]
@@ -479,7 +571,10 @@ def histplot(
     """Histogram, one layer (or stacked segment) per ``hue`` level.
 
     All levels share one set of bin edges, and ``stat`` normalizes over all
-    levels together, so layers compare on the same scale.
+    levels together, so layers compare on the same scale. Layers are drawn
+    last level first, so the first level is on top. Bar edges are thinned for
+    narrow bins (a tenth of the narrowest bin's width in points, at most
+    ``patch.linewidth``) unless ``linewidth`` is given.
 
     Args:
         df: Polars DataFrame
@@ -494,7 +589,8 @@ def histplot(
             to 1), "probability" (heights sum to 1), or "percent"
         multiple: "layer" overlaps levels; "stack" stacks them
         alpha: Bar opacity (default 0.75, or 0.5 for layered hue levels)
-        legend: Add a legend for ``hue``
+        legend: Add a legend for ``hue``; "auto" omits it when ``hue`` is the
+            category column
         ax: Axes to draw on
         **kwargs: Passed to ``Axes.bar``
 
@@ -519,8 +615,10 @@ def histplot(
         colors = resolve_colors(levels, palette)
     if alpha is None:
         alpha = 0.5 if hue is not None and multiple == "layer" else 0.75
+    fixed_width = bool({"linewidth", "linewidths", "lw"} & kwargs.keys())
     base = np.zeros(len(widths))
-    for level, rgb in zip(levels, colors):
+    heights_by_level: list[np.ndarray] = []
+    for level in levels:
         part = data if hue is None else data.filter(pl.col(hue) == level)
         counts, _ = np.histogram(
             part.get_column(x).cast(pl.Float64).to_numpy(), bins=edges
@@ -534,20 +632,41 @@ def histplot(
             heights /= total
         elif stat == "percent":
             heights *= 100 / total
-        bar_kws: dict[str, Any] = {
-            "color": rgb,
-            "alpha": alpha,
-            "edgecolor": "white",
-            "linewidth": 0.5,
-            **kwargs,
-        }
-        if level is not None:
-            bar_kws["label"] = str(level)
-        ax.bar(edges[:-1], heights, width=widths, bottom=base, align="edge", **bar_kws)
+        heights_by_level.append(heights)
+    bottoms = []
+    for heights in heights_by_level:
+        bottoms.append(base)
         if multiple == "stack":
             base = base + heights
+    # alpha fades the fill only; the edges stay opaque, as seaborn draws them
+    bar_kws: dict[str, Any] = {"edgecolor": "white", **kwargs}
+    drawn = []
+    for i in reversed(range(len(levels))):
+        level_kws: dict[str, Any] = {**bar_kws, "facecolor": (*colors[i], alpha)}
+        drawn.extend(
+            ax.bar(
+                edges[:-1],
+                heights_by_level[i],
+                width=widths,
+                bottom=bottoms[i],
+                align="edge",
+                **level_kws,
+            )
+        )
+    if not fixed_width and drawn:
+        ax.autoscale_view()
+        narrow = int(np.argmin(widths))
+        left = edges[narrow]
+        span = ax.transData.transform([left + widths[narrow]] * 2)
+        span = span - ax.transData.transform([left] * 2)
+        points = 72 / ax.figure.dpi * abs(span[0])
+        bar_width = min(0.1 * points, plt.rcParams["patch.linewidth"])
+        for bar in drawn:
+            bar.set_linewidth(bar_width)
     if legend and hue is not None:
-        ax.legend(title=hue)
+        handle = _patch_handle(**_patch_props(bar_kws))
+        handles = [handle(i, (*c, alpha)) for i, c in enumerate(colors)]
+        add_legend_artists(ax, handles, levels, hue)
     ax.set_xlabel(x)
     ax.set_ylabel(stat.capitalize())
     return ax
@@ -564,14 +683,17 @@ def boxplot(
     orient: Orient = "x",
     palette: Palette = None,
     color: Any = None,
+    saturation: float = 0.75,
+    fill: bool = True,
     width: float = 0.8,
-    dodge: bool = True,
-    linecolor: Any = _ERR_COLOR,
+    dodge: Dodge = "auto",
+    gap: float = 0.0,
+    linecolor: Any = "auto",
     linewidth: float | None = None,
     fliersize: float | None = None,
     whis: float = 1.5,
     showfliers: bool = True,
-    legend: bool = True,
+    legend: LegendSpec = "auto",
     ax: Axes | None = None,
     **kwargs: Any,
 ) -> Axes:
@@ -587,14 +709,21 @@ def boxplot(
         orient: "x" for vertical boxes, "y" for horizontal
         palette: Hue colors
         color: Box color without hue
+        saturation: Share of the colors' saturation to fill the boxes with
+            (ignored when ``fill`` is False)
+        fill: Fill the boxes; False draws every line in the box's color
         width: Total width of the boxes at each category
-        dodge: Place hue levels side by side
-        linecolor: Color of box edges, whiskers, and medians
+        dodge: Place hue levels side by side; "auto" dodges only when ``hue``
+            differs from the category column
+        gap: Shrink each box by this share of its width, about its center
+        linecolor: Color of box edges, whiskers, and medians when filled;
+            "auto" picks a gray darker than the darkest fill
         linewidth: Line width (default: ``lines.linewidth``)
         fliersize: Outlier marker size (0 hides them)
         whis: Whisker reach, in IQRs past the quartiles
         showfliers: Draw the outliers
-        legend: Add a legend for ``hue``
+        legend: Add a legend for ``hue``; "auto" omits it when ``hue`` is the
+            category column
         ax: Axes to draw on
         **kwargs: Passed to ``Axes.boxplot``
 
@@ -602,36 +731,60 @@ def boxplot(
         The Axes drawn on
     """
     ax = get_ax(ax)
-    cat = _categorical(df, x, y, hue, order, hue_order, orient, palette, color)
+    cat = _categorical(
+        df,
+        x,
+        y,
+        hue,
+        order,
+        hue_order,
+        orient,
+        palette,
+        color,
+        saturation if fill else 1.0,
+    )
     n_hue = len(cat.hues)
-    offsets, box_width = _dodge_offsets(width, n_hue, dodge)
+    offsets, box_width = _dodge_offsets(width, n_hue, cat.resolve_dodge(dodge))
+    box_width *= 1 - gap
+    if isinstance(linecolor, str) and linecolor == "auto":
+        linecolor = gray_complement(cat.colors)
     lw = linewidth if linewidth is not None else plt.rcParams["lines.linewidth"]
-    line = {"color": linecolor, "linewidth": lw}
-    flier: dict[str, Any] = {"markeredgecolor": linecolor, "markeredgewidth": lw}
-    if fliersize is not None:
-        flier["markersize"] = fliersize
     for (ci, hi), values in cat.groups.items():
+        main = cat.colors[hi]
+        edge = linecolor if fill else main
+        line = {"color": edge, "linewidth": lw}
+        flier: dict[str, Any] = {"markeredgecolor": edge, "markeredgewidth": lw}
+        if fliersize is not None:
+            flier["markersize"] = fliersize
+        boxprops: dict[str, Any] = (
+            {"facecolor": main, "edgecolor": linecolor, "linewidth": lw}
+            if fill
+            else {"color": main, "linewidth": lw}
+        )
         ax.boxplot(
             [values],
             positions=[ci + offsets[hi]],
             widths=box_width,
             whis=whis,
             showfliers=showfliers,
-            patch_artist=True,
+            patch_artist=fill,
             manage_ticks=False,
             orientation="vertical" if orient == "x" else "horizontal",
-            boxprops={
-                "facecolor": cat.colors[hi],
-                "edgecolor": linecolor,
-                "linewidth": lw,
-            },
+            boxprops=boxprops,
             whiskerprops=line,
             capprops=line,
             medianprops=line,
             flierprops=flier,
             **kwargs,
         )
-    _finish_categorical(ax, cat, legend, _patch_handle)
+    if fill:
+        handle = _patch_handle(edgecolor=linecolor, linewidth=lw)
+    else:
+
+        def handle(hi: int, c: RGB) -> Rectangle:
+            return Rectangle((0, 0), 0, 0, facecolor="none", edgecolor=c, linewidth=lw)
+
+    _finish_categorical(ax, cat, legend, handle)
     return ax
 
 
@@ -665,7 +818,7 @@ def swarmplot(
     edgecolor: Any = "white",
     dodge: bool = False,
     warn_thresh: float = 0.05,
-    legend: bool = True,
+    legend: LegendSpec = "auto",
     ax: Axes | None = None,
     **kwargs: Any,
 ) -> Axes:
@@ -690,7 +843,8 @@ def swarmplot(
         edgecolor: Marker edge color
         dodge: Separate swarms per hue level
         warn_thresh: Warn when more than this share of points cannot be placed
-        legend: Add a legend for ``hue``
+        legend: Add a legend for ``hue``; "auto" omits it when ``hue`` is the
+            category column
         ax: Axes to draw on
         **kwargs: Passed to ``Axes.scatter``
 
@@ -702,10 +856,12 @@ def swarmplot(
     width = 0.8
     n_hue = len(cat.hues)
     offsets, _ = _dodge_offsets(width, n_hue, dodge)
+    # zorder 3 puts the points above bars and error bars drawn on the same axes
     scatter_kws: dict[str, Any] = {
         "s": size**2,
         "linewidth": linewidth,
         "edgecolor": edgecolor,
+        "zorder": 3,
         **kwargs,
     }
     swarms: list[tuple[PathCollection, float]] = []
@@ -750,16 +906,21 @@ def boxenplot(
     orient: Orient = "x",
     palette: Palette = None,
     color: Any = None,
+    saturation: float = 0.75,
     width: float = 0.8,
-    dodge: bool = True,
-    linecolor: Any = _ERR_COLOR,
+    dodge: Dodge = "auto",
+    gap: float = 0.0,
+    linecolor: Any = "auto",
     linewidth: float | None = None,
     width_method: Literal["exponential", "linear", "area"] = "exponential",
     k_depth: KDepth = "tukey",
     outlier_prop: float = 0.007,
     trust_alpha: float = 0.05,
     showfliers: bool = True,
-    legend: bool = True,
+    box_kws: dict[str, Any] | None = None,
+    line_kws: dict[str, Any] | None = None,
+    flier_kws: dict[str, Any] | None = None,
+    legend: LegendSpec = "auto",
     ax: Axes | None = None,
     **kwargs: Any,
 ) -> Axes:
@@ -778,9 +939,13 @@ def boxenplot(
         orient: "x" for vertical boxes, "y" for horizontal
         palette: Hue colors
         color: Box color without hue
+        saturation: Share of the colors' saturation for the boxes' base color
         width: Total width of the widest box at each category
-        dodge: Place hue levels side by side
-        linecolor: Box edge and median color
+        dodge: Place hue levels side by side; "auto" dodges only when ``hue``
+            differs from the category column
+        gap: Shrink each set of boxes by this share of its width
+        linecolor: Box edge and median color; "auto" picks a gray darker than
+            the darkest fill
         linewidth: Box edge width (default: half ``lines.linewidth``)
         width_method: How box width shrinks with depth: "exponential",
             "linear", or "area"
@@ -788,7 +953,11 @@ def boxenplot(
         outlier_prop: Outlier rate for ``k_depth="proportion"``
         trust_alpha: Confidence level for ``k_depth="trustworthy"``
         showfliers: Draw points beyond the outermost box
-        legend: Add a legend for ``hue``
+        box_kws: Keyword arguments for the boxes' ``PatchCollection``
+        line_kws: Keyword arguments for the median line's ``Axes.plot``
+        flier_kws: Keyword arguments for the outliers' ``Axes.scatter``
+        legend: Add a legend for ``hue``; "auto" omits it when ``hue`` is the
+            category column
         ax: Axes to draw on
         **kwargs: Passed to the boxes' ``PatchCollection``
 
@@ -798,10 +967,16 @@ def boxenplot(
     if width_method not in ("exponential", "linear", "area"):
         raise ValueError(f"unknown width_method {width_method!r}")
     ax = get_ax(ax)
-    cat = _categorical(df, x, y, hue, order, hue_order, orient, palette, color)
+    cat = _categorical(
+        df, x, y, hue, order, hue_order, orient, palette, color, saturation
+    )
     n_hue = len(cat.hues)
-    offsets, box_width = _dodge_offsets(width, n_hue, dodge)
+    offsets, box_width = _dodge_offsets(width, n_hue, cat.resolve_dodge(dodge))
+    box_width *= 1 - gap
+    if isinstance(linecolor, str) and linecolor == "auto":
+        linecolor = gray_complement(cat.colors)
     lw = linewidth if linewidth is not None else 0.5 * plt.rcParams["lines.linewidth"]
+    user_box = normalize_kwargs({**kwargs, **(box_kws or {})}, PatchCollection)
     for (ci, hi), values in cat.groups.items():
         lv = letter_values(values, k_depth, outlier_prop, trust_alpha)
         k = lv["k"]
@@ -827,13 +1002,14 @@ def boxenplot(
                 boxes.append(Rectangle((low_edge, vals[i]), widths[i], height))
             else:
                 boxes.append(Rectangle((vals[i], low_edge), height, widths[i]))
-        box_kws: dict[str, Any] = {
-            "facecolors": boxcolors,
-            "edgecolors": linecolor,
-            "linewidth": lw,
-            **kwargs,
+        collection_kws = {
+            **normalize_kwargs(
+                {"facecolors": boxcolors, "edgecolors": linecolor, "linewidth": lw},
+                PatchCollection,
+            ),
+            **user_box,
         }
-        collection = PatchCollection(boxes, **box_kws)
+        collection = PatchCollection(boxes, **collection_kws)
         ax.add_collection(collection, autolim=False)
         ax.update_datalim(
             np.column_stack([vals, vals]),
@@ -842,22 +1018,29 @@ def boxenplot(
         )
         med = lv["median"]
         half = box_width / 2
-        ax.plot(
-            *cat.xy([center - half, center + half], [med, med]),
-            color=linecolor,
-            solid_capstyle="butt",
-            linewidth=1.25 * lw,
-        )
+        median_kws: dict[str, Any] = {
+            "color": linecolor,
+            "solid_capstyle": "butt",
+            "linewidth": 1.25 * lw,
+            **(line_kws or {}),
+        }
+        ax.plot(*cat.xy([center - half, center + half], [med, med]), **median_kws)
         if showfliers and lv["fliers"].size:
             fliers = lv["fliers"]
-            ax.scatter(
-                *cat.xy(np.full(fliers.size, center), fliers),
-                facecolor="none",
-                edgecolor=".45",
-                s=25,
-            )
+            flier_props: dict[str, Any] = {
+                "facecolor": "none",
+                "edgecolor": ".45",
+                "s": 25,
+                **(flier_kws or {}),
+            }
+            ax.scatter(*cat.xy(np.full(fliers.size, center), fliers), **flier_props)
     ax.autoscale_view(scalex=orient == "y", scaley=orient == "x")
-    _finish_categorical(ax, cat, legend, _patch_handle)
+    legend_props = {
+        **_patch_props(normalize_kwargs(box_kws or {}, Rectangle)),
+        "linewidth": lw,
+        "edgecolor": linecolor,
+    }
+    _finish_categorical(ax, cat, legend, _patch_handle(**legend_props))
     return ax
 
 

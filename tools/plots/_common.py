@@ -1,10 +1,12 @@
 """Data and axes helpers shared by the plotting modules (``charts``, ``core``)."""
 
+import colorsys
 from collections.abc import Sequence
 from typing import Any
 
 import matplotlib.pyplot as plt
 import polars as pl
+from matplotlib.artist import Artist
 from matplotlib.axes import Axes
 from matplotlib.colors import to_rgb
 
@@ -47,3 +49,28 @@ def category_levels(series: pl.Series, order: Sequence[Any] | None) -> list[Any]
     if dtype.is_numeric() or dtype.is_temporal() or dtype == pl.Boolean:
         return values.unique().sort().to_list()
     return values.unique(maintain_order=True).to_list()
+
+
+def gray_complement(colors: Sequence[Any]) -> RGB:
+    """A gray for lines drawn over fills of ``colors``, as seaborn picks it.
+
+    The gray's lightness is 0.6 times the lowest HLS lightness among the
+    colors, so lines stay visible against the darkest fill.
+    """
+    lightness = min(colorsys.rgb_to_hls(*to_rgb(c))[1] for c in colors)
+    gray = 0.6 * lightness
+    return (gray, gray, gray)
+
+
+def add_legend_artists(
+    ax: Axes, handles: Sequence[Artist], labels: Sequence[Any], title: str
+) -> None:
+    """Add labeled, unseen legend artists to ``ax`` and draw a legend from them.
+
+    The artists stay on the axes, so ``ax.get_legend_handles_labels()`` (and a
+    later ``add_legend``) finds them, as it finds seaborn's.
+    """
+    for handle, label in zip(handles, labels):
+        handle.set_label(str(label))
+        ax.add_artist(handle)
+    ax.legend(title=title)

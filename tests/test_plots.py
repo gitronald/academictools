@@ -81,7 +81,9 @@ class TestEnhancedPlots:
     def test_scatter_with_hue(self, plot_df):
         ax = enhanced_scatterplot(plot_df, "x", "y", hue="g")
         assert isinstance(ax, Axes)
-        assert len(ax.collections) == 2
+        assert len(ax.collections) == 1
+        legend = ax.get_legend()
+        assert legend is not None and len(legend.get_texts()) == 2
 
     def test_line_aggregates_repeated_x(self):
         df = pl.DataFrame(
