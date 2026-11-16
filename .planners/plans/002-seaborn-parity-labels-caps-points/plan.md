@@ -82,3 +82,9 @@ size defaults. Close each one, test it against values recorded from seaborn
   - Worktree: `.worktrees/002-seaborn-parity-labels-caps-points`
   - PR: pending
 - **2026-11-15T20:25:59-08:00** — PR opened: https://github.com/gitronald/academictools/pull/10
+- **2026-11-15T20:26:08-08:00** — All three gaps closed, each tested against values recorded from seaborn 0.13.2 (new labels, caps, and points keys in tests/fixtures/parity_reference.json; the four other fixtures and the existing keys re-recorded byte-identical).
+    - Labels: set_axis_labels in _common.py, used by the categorical helpers, scatterplot, histplot, and enhanced_lineplot. The recording showed seaborn's regplot sets both labels unconditionally and visibly, so regplot is unchanged.
+    - Caps: barplot caps are capsize / n category widths (n the dodged hue levels), independent of width; error lines drop solid_capstyle="butt" for matplotlib's default (projecting). pointplot caps already matched (capsize category widths).
+    - pointplot: line and error width 1.8 times lines.linewidth, marker size that times sqrt(2 pi), marker edge 0.75 times; lw= and ms= aliases fold into linewidth and markersize; the legend handle takes the line's marker edge.
+    - Side-by-side renders against seaborn: a shared-x two-row hue bar figure (capsize 0.1, thin error lines) differs in 0.02 percent of pixels, from the bootstrap intervals; a shared-y row of point plots is pixel-identical.
+    - 598 tests pass; ruff, ruff format, and pyrefly clean.
