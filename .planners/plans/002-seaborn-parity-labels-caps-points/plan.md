@@ -1,0 +1,109 @@
+---
+id: 2
+slug: seaborn-parity-labels-caps-points
+status: done
+branch: feature/002-seaborn-parity-labels-caps-points
+created: 2026-11-15T20:20:40-08:00
+concluded: 2026-11-15T20:28:13-08:00
+pr: https://github.com/gitronald/academictools/pull/10
+---
+
+# Match seaborn's axis labels, error bar caps, and point plot sizes
+
+## Plan
+
+### Goal
+
+Plan 001 closed the parity gaps that a side-by-side comparison on synthetic
+data found. Rendering real multi-panel figures both ways finds three more:
+gaps that show only with shared axes, several hue levels, or seaborn's own
+size defaults. Close each one, test it against values recorded from seaborn
+0.13.2, and release a patch version.
+
+### Gaps
+
+1. **Axis labels.** Every helper calls `ax.set_xlabel` and `ax.set_ylabel`
+   unconditionally. seaborn sets a label only when the axis has none, and
+   makes it visible only when that axis shows tick labels. On axes made with
+   `plt.subplots(sharex=True)` or `sharey=True`, matplotlib hides the inner
+   tick labels, so seaborn's inner axis labels stay hidden; the helpers show
+   the label on every panel. A label set before the call is kept by seaborn
+   and overwritten by the helpers. A `scatterplot` of bare arrays gets no
+   label from seaborn.
+2. **Error bar caps.**
+   - In `barplot`, seaborn draws a cap `capsize / n` category widths wide,
+     where `n` is the number of dodged hue levels (1 without dodging),
+     whatever the bar `width`. The helper draws `capsize * bar_width`: 20
+     percent narrower at the default width, and narrower still at a smaller
+     `width`.
+   - seaborn's error lines take matplotlib's default cap style
+     (`lines.solid_capstyle`, projecting), so a cap reaches half a line
+     width past each end. The helpers draw them with `solid_capstyle="butt"`.
+     With a thin `err_kws` line width and several hue levels, the helper's
+     caps barely show past the error line.
+3. **`pointplot` sizes.** seaborn's defaults are a line width of 1.8 times
+   `lines.linewidth` (for the line and the error bars), a marker size of that
+   width times sqrt(2 pi), and a marker edge width of 0.75 times that width.
+   The helper uses `lines.linewidth` and `lines.markersize`, so its lines are
+   thinner and its markers smaller.
+
+### Approach
+
+- Record seaborn's values first, as plans 000 and 001 did: extend
+  `tests/fixtures/record_reference.py` (label text and visibility on a 2x2
+  shared grid, cap extents for bars with and without hue at two widths, the
+  error line cap style, and pointplot's line width, marker size, and marker
+  edge width), re-run it in the throwaway environment its docstring names,
+  and commit the fixture. seaborn stays out of the dev group.
+- One shared label helper in `_common.py`, used by the categorical helpers,
+  `scatterplot`, `histplot`, and `enhanced_lineplot` (in `core.py`), so the
+  rule lives in one place. `regplot` keeps setting both labels
+  unconditionally: the recording shows seaborn's `regplot` does.
+- Each gap gets tests on the drawn artists against the recorded values.
+
+### Order
+
+1. Record the fixtures.
+2. Gap 1 (labels), with tests.
+3. Gaps 2 and 3 (`charts.py`), with tests.
+4. README and CHANGELOG `[Unreleased]`; ruff, pyrefly, and the suite; side-by-
+   side renders of a shared-axis grid; a patch release with stanza.
+
+### Out of scope
+
+- `heatmap` and calendar heatmap labels, which follow their own rules.
+- Bootstrap intervals, which differ from seaborn's by design.
+
+## Log
+
+- **2026-11-15T20:21:10-08:00** — Activated.
+  - Branch: `feature/002-seaborn-parity-labels-caps-points`
+  - Base: `dev` at `5ff3b81`
+  - Worktree: `.worktrees/002-seaborn-parity-labels-caps-points`
+  - PR: pending
+- **2026-11-15T20:25:59-08:00** — PR opened: https://github.com/gitronald/academictools/pull/10
+- **2026-11-15T20:26:08-08:00** — All three gaps closed, each tested against values recorded from seaborn 0.13.2 (new labels, caps, and points keys in tests/fixtures/parity_reference.json; the four other fixtures and the existing keys re-recorded byte-identical).
+    - Labels: set_axis_labels in _common.py, used by the categorical helpers, scatterplot, histplot, and enhanced_lineplot. The recording showed seaborn's regplot sets both labels unconditionally and visibly, so regplot is unchanged.
+    - Caps: barplot caps are capsize / n category widths (n the dodged hue levels), independent of width; error lines drop solid_capstyle="butt" for matplotlib's default (projecting). pointplot caps already matched (capsize category widths).
+    - pointplot: line and error width 1.8 times lines.linewidth, marker size that times sqrt(2 pi), marker edge 0.75 times; lw= and ms= aliases fold into linewidth and markersize; the legend handle takes the line's marker edge.
+    - Side-by-side renders against seaborn: a shared-x two-row hue bar figure (capsize 0.1, thin error lines) differs in 0.02 percent of pixels, from the bootstrap intervals; a shared-y row of point plots is pixel-identical.
+    - 598 tests pass; ruff, ruff format, and pyrefly clean.
+- **2026-11-15T20:26:18-08:00** — Implemented: 4 commits ahead of `dev`.
+- **2026-11-15T20:28:14-08:00** — Review gate (code-review, medium): 5 candidates from two finders, none confirmed.
+    - Rejected on evidence: the boxenplot median's butt cap (seaborn's own source sets it), linewidth=0 hiding pointplot markers (seaborn gives the same marker size 0), and ls=/c= colliding with pointplot's explicit arguments (it raised before this change too).
+    - Below the confidence cut: a redundant n_hue > 1 condition (20) and regplot's direct label calls (25); the second got a one-line comment anyway, so the exception reads as deliberate.
+    - 598 tests pass; ruff, ruff format, and pyrefly clean.
+
+## Retrospective
+
+- Plan 001's synthetic comparisons drew each helper on a single axes, so
+  none of these three gaps could show there: they need shared axes, several
+  hue levels with thin error lines, or seaborn's size defaults left alone.
+  Rendering real multi-panel figures found them; a shared-axis grid belongs
+  in any future side-by-side check.
+- Recording before fixing paid off again: `regplot` turned out to be the
+  exception to seaborn's label rule, which reading the other plots' source
+  would have missed.
+- Two review candidates were seaborn's own behavior (the boxenplot median
+  cap, markers vanishing at `linewidth=0`). Checking seaborn's source or a
+  one-line probe settled each faster than a verifier would have.

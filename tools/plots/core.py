@@ -9,7 +9,13 @@ import polars as pl
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
-from tools.plots._common import category_levels, complete_rows, get_ax, single_color
+from tools.plots._common import (
+    category_levels,
+    complete_rows,
+    get_ax,
+    set_axis_labels,
+    single_color,
+)
 from tools.plots.charts import boxplot, scatterplot
 from tools.plots.estimate import ErrorBar, Estimator, estimate_interval
 from tools.plots.palettes import Palette, resolve_colors
@@ -114,8 +120,7 @@ def enhanced_lineplot(
             )
     if legend and hue is not None:
         ax.legend(title=hue)
-    ax.set_xlabel(x)
-    ax.set_ylabel(y)
+    set_axis_labels(ax, x, y)
     return ax
 
 

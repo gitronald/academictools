@@ -24,9 +24,11 @@ from tools.plots.charts import (
     boxplot,
     histplot,
     pointplot,
+    regplot,
     scatterplot,
     swarmplot,
 )
+from tools.plots.core import enhanced_lineplot
 from tools.plots.palettes import (
     DEEP,
     color_palette,
@@ -343,3 +345,115 @@ class TestReviewFollowUp:
             warnings.filterwarnings("error", message="No artists with labels")
             ax = draw(frame.clear())
         assert ax.get_legend() is None
+
+
+def _labels(axs) -> list[dict]:
+    return [
+        {
+            "xlabel": ax.get_xlabel(),
+            "xvisible": ax.xaxis.label.get_visible(),
+            "ylabel": ax.get_ylabel(),
+            "yvisible": ax.yaxis.label.get_visible(),
+        }
+        for ax in np.ravel(axs)
+    ]
+
+
+LABEL_CALLS = {
+    "barplot": lambda df, ax: barplot(df, "cat", "val", errorbar=None, ax=ax),
+    "barplot_y": lambda df, ax: barplot(
+        df, "val", "cat", orient="y", errorbar=None, ax=ax
+    ),
+    "pointplot": lambda df, ax: pointplot(df, "cat", "val", errorbar=None, ax=ax),
+    "boxplot": lambda df, ax: boxplot(df, "cat", "val", ax=ax),
+    "scatterplot": lambda df, ax: scatterplot(df, "val", "val", ax=ax),
+    "histplot": lambda df, ax: histplot(df, "val", ax=ax),
+    "regplot": lambda df, ax: regplot(df, "val", "val", ci=None, ax=ax),
+}
+
+
+class TestAxisLabels:
+    @pytest.mark.parametrize("name", LABEL_CALLS)
+    def test_shared_grid(self, frame, name):
+        _, axs = plt.subplots(2, 2, sharex=True, sharey=True)
+        for ax in np.ravel(axs):
+            LABEL_CALLS[name](frame, ax)
+        assert _labels(axs) == PARITY["labels"][name]["grid"]
+
+    @pytest.mark.parametrize("name", LABEL_CALLS)
+    def test_preset_label(self, frame, name):
+        _, ax = plt.subplots()
+        ax.set_xlabel("preset x")
+        LABEL_CALLS[name](frame, ax)
+        assert _labels([ax])[0] == PARITY["labels"][name]["preset"]
+
+    def test_lineplot_keeps_preset_and_hides_inner(self, frame):
+        _, axs = plt.subplots(1, 2, sharey=True)
+        axs[0].set_xlabel("kept")
+        for ax in axs:
+            enhanced_lineplot(frame, "val", "val", errorbar=None, ax=ax)
+        assert axs[0].get_xlabel() == "kept"
+        assert axs[0].yaxis.label.get_visible()
+        assert axs[1].get_ylabel() == "val"
+        assert not axs[1].yaxis.label.get_visible()
+
+
+def _extent(values: object) -> tuple[int, float]:
+    """Point count and extent of a line's data along one axis."""
+    data = np.asarray(values, dtype=float)
+    return data.size, float(np.ptp(data))
+
+
+class TestErrorBarCaps:
+    @pytest.mark.parametrize("case", PARITY["caps"], ids=lambda c: c["case"])
+    def test_bar_cap_width_and_style(self, frame, case):
+        kws = dict(case["kws"])
+        if "hue" in kws:
+            kws["palette"] = PALETTE
+        _, ax = plt.subplots()
+        barplot(
+            frame,
+            "cat",
+            "val",
+            order=["a", "b", "c"],
+            capsize=0.1,
+            seed=0,
+            n_boot=50,
+            ax=ax,
+            **kws,
+        )
+        caps = [
+            line
+            for line in ax.lines
+            if _extent(line.get_xdata())[0] == 2 and _extent(line.get_ydata())[1] == 0
+        ]
+        assert caps
+        for line in caps:
+            assert _extent(line.get_xdata())[1] == pytest.approx(case["cap_width"])
+            assert str(line.get_solid_capstyle()) == case["capstyle"]
+            assert line.get_linewidth() == pytest.approx(case["linewidth"])
+
+
+class TestPointSizes:
+    @pytest.mark.parametrize(
+        "case", PARITY["points"], ids=lambda c: f"rc{c['rc_linewidth']}-{c['kws']}"
+    )
+    def test_line_marker_and_error_sizes(self, frame, case):
+        with mpl.rc_context({"lines.linewidth": case["rc_linewidth"]}):
+            _, ax = plt.subplots()
+            pointplot(frame, "cat", "val", seed=0, n_boot=50, ax=ax, **case["kws"])
+            mark = next(line for line in ax.lines if line.get_marker() == "o")
+            err = next(line for line in ax.lines if line.get_marker() in ("None", ""))
+        assert mark.get_linewidth() == pytest.approx(case["linewidth"])
+        assert mark.get_markersize() == pytest.approx(case["markersize"])
+        assert mark.get_markeredgewidth() == pytest.approx(case["markeredgewidth"])
+        assert err.get_linewidth() == pytest.approx(case["err_linewidth"])
+        assert str(err.get_solid_capstyle()) == case["err_capstyle"]
+
+    def test_aliases_and_explicit_edge_width(self, frame):
+        _, ax = plt.subplots()
+        pointplot(frame, "cat", "val", errorbar=None, lw=1.0, ms=4, mew=0.2, ax=ax)
+        mark = next(line for line in ax.lines if line.get_marker() == "o")
+        assert mark.get_linewidth() == 1.0
+        assert mark.get_markersize() == 4
+        assert mark.get_markeredgewidth() == 0.2
