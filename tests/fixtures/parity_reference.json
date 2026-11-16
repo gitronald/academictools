@@ -1968,5 +1968,322 @@
    ],
    "legend": []
   }
+ ],
+ "labels": {
+  "barplot": {
+   "grid": [
+    {
+     "xlabel": "cat",
+     "xvisible": false,
+     "ylabel": "val",
+     "yvisible": true
+    },
+    {
+     "xlabel": "cat",
+     "xvisible": false,
+     "ylabel": "val",
+     "yvisible": false
+    },
+    {
+     "xlabel": "cat",
+     "xvisible": true,
+     "ylabel": "val",
+     "yvisible": true
+    },
+    {
+     "xlabel": "cat",
+     "xvisible": true,
+     "ylabel": "val",
+     "yvisible": false
+    }
+   ],
+   "preset": {
+    "xlabel": "preset x",
+    "xvisible": true,
+    "ylabel": "val",
+    "yvisible": true
+   }
+  },
+  "barplot_y": {
+   "grid": [
+    {
+     "xlabel": "val",
+     "xvisible": false,
+     "ylabel": "cat",
+     "yvisible": true
+    },
+    {
+     "xlabel": "val",
+     "xvisible": false,
+     "ylabel": "cat",
+     "yvisible": false
+    },
+    {
+     "xlabel": "val",
+     "xvisible": true,
+     "ylabel": "cat",
+     "yvisible": true
+    },
+    {
+     "xlabel": "val",
+     "xvisible": true,
+     "ylabel": "cat",
+     "yvisible": false
+    }
+   ],
+   "preset": {
+    "xlabel": "preset x",
+    "xvisible": true,
+    "ylabel": "cat",
+    "yvisible": true
+   }
+  },
+  "pointplot": {
+   "grid": [
+    {
+     "xlabel": "cat",
+     "xvisible": false,
+     "ylabel": "val",
+     "yvisible": true
+    },
+    {
+     "xlabel": "cat",
+     "xvisible": false,
+     "ylabel": "val",
+     "yvisible": false
+    },
+    {
+     "xlabel": "cat",
+     "xvisible": true,
+     "ylabel": "val",
+     "yvisible": true
+    },
+    {
+     "xlabel": "cat",
+     "xvisible": true,
+     "ylabel": "val",
+     "yvisible": false
+    }
+   ],
+   "preset": {
+    "xlabel": "preset x",
+    "xvisible": true,
+    "ylabel": "val",
+    "yvisible": true
+   }
+  },
+  "boxplot": {
+   "grid": [
+    {
+     "xlabel": "cat",
+     "xvisible": false,
+     "ylabel": "val",
+     "yvisible": true
+    },
+    {
+     "xlabel": "cat",
+     "xvisible": false,
+     "ylabel": "val",
+     "yvisible": false
+    },
+    {
+     "xlabel": "cat",
+     "xvisible": true,
+     "ylabel": "val",
+     "yvisible": true
+    },
+    {
+     "xlabel": "cat",
+     "xvisible": true,
+     "ylabel": "val",
+     "yvisible": false
+    }
+   ],
+   "preset": {
+    "xlabel": "preset x",
+    "xvisible": true,
+    "ylabel": "val",
+    "yvisible": true
+   }
+  },
+  "scatterplot": {
+   "grid": [
+    {
+     "xlabel": "val",
+     "xvisible": false,
+     "ylabel": "val",
+     "yvisible": true
+    },
+    {
+     "xlabel": "val",
+     "xvisible": false,
+     "ylabel": "val",
+     "yvisible": false
+    },
+    {
+     "xlabel": "val",
+     "xvisible": true,
+     "ylabel": "val",
+     "yvisible": true
+    },
+    {
+     "xlabel": "val",
+     "xvisible": true,
+     "ylabel": "val",
+     "yvisible": false
+    }
+   ],
+   "preset": {
+    "xlabel": "preset x",
+    "xvisible": true,
+    "ylabel": "val",
+    "yvisible": true
+   }
+  },
+  "histplot": {
+   "grid": [
+    {
+     "xlabel": "val",
+     "xvisible": false,
+     "ylabel": "Count",
+     "yvisible": true
+    },
+    {
+     "xlabel": "val",
+     "xvisible": false,
+     "ylabel": "Count",
+     "yvisible": false
+    },
+    {
+     "xlabel": "val",
+     "xvisible": true,
+     "ylabel": "Count",
+     "yvisible": true
+    },
+    {
+     "xlabel": "val",
+     "xvisible": true,
+     "ylabel": "Count",
+     "yvisible": false
+    }
+   ],
+   "preset": {
+    "xlabel": "preset x",
+    "xvisible": true,
+    "ylabel": "Count",
+    "yvisible": true
+   }
+  },
+  "regplot": {
+   "grid": [
+    {
+     "xlabel": "val",
+     "xvisible": true,
+     "ylabel": "val",
+     "yvisible": true
+    },
+    {
+     "xlabel": "val",
+     "xvisible": true,
+     "ylabel": "val",
+     "yvisible": true
+    },
+    {
+     "xlabel": "val",
+     "xvisible": true,
+     "ylabel": "val",
+     "yvisible": true
+    },
+    {
+     "xlabel": "val",
+     "xvisible": true,
+     "ylabel": "val",
+     "yvisible": true
+    }
+   ],
+   "preset": {
+    "xlabel": "val",
+    "xvisible": true,
+    "ylabel": "val",
+    "yvisible": true
+   }
+  }
+ },
+ "caps": [
+  {
+   "case": "plain",
+   "kws": {},
+   "cap_width": 0.1,
+   "capstyle": "projecting",
+   "linewidth": 2.25
+  },
+  {
+   "case": "plain_width",
+   "kws": {
+    "width": 0.5
+   },
+   "cap_width": 0.1,
+   "capstyle": "projecting",
+   "linewidth": 2.25
+  },
+  {
+   "case": "hue",
+   "kws": {
+    "hue": "grp"
+   },
+   "cap_width": 0.04999999999999999,
+   "capstyle": "projecting",
+   "linewidth": 2.25
+  },
+  {
+   "case": "hue_width",
+   "kws": {
+    "hue": "grp",
+    "width": 0.5
+   },
+   "cap_width": 0.04999999999999999,
+   "capstyle": "projecting",
+   "linewidth": 2.25
+  },
+  {
+   "case": "hue_is_x",
+   "kws": {
+    "hue": "cat"
+   },
+   "cap_width": 0.1,
+   "capstyle": "projecting",
+   "linewidth": 2.25
+  }
+ ],
+ "points": [
+  {
+   "rc_linewidth": 1.5,
+   "kws": {},
+   "linewidth": 2.7,
+   "markersize": 6.767896341503701,
+   "markeredgewidth": 2.0250000000000004,
+   "err_linewidth": 2.7,
+   "err_capstyle": "projecting"
+  },
+  {
+   "rc_linewidth": 2.0,
+   "kws": {},
+   "linewidth": 3.6,
+   "markersize": 9.023861788671601,
+   "markeredgewidth": 2.7,
+   "err_linewidth": 3.6,
+   "err_capstyle": "projecting"
+  },
+  {
+   "rc_linewidth": 1.5,
+   "kws": {
+    "linewidth": 1.0
+   },
+   "linewidth": 1.0,
+   "markersize": 2.5066282746310002,
+   "markeredgewidth": 0.75,
+   "err_linewidth": 1.0,
+   "err_capstyle": "projecting"
+  }
  ]
 }

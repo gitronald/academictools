@@ -75,3 +75,18 @@ def add_legend_artists(
         ax.add_artist(handle)
     if handles:
         ax.legend(title=title)
+
+
+def set_axis_labels(ax: Axes, xlabel: str | None, ylabel: str | None) -> None:
+    """Label the axes as seaborn does.
+
+    An axis that already has a label keeps it. A new label is visible only when
+    the axis shows tick labels, so the inner panels of a grid made with shared
+    axes, whose tick labels matplotlib hides, carry no visible label. ``None``
+    leaves that axis alone.
+    """
+    for axis, label in ((ax.xaxis, xlabel), (ax.yaxis, ylabel)):
+        if label is None or axis.get_label_text():
+            continue
+        visible = any(tick.get_visible() for tick in axis.get_ticklabels())
+        axis.set_label_text(label, visible=visible)

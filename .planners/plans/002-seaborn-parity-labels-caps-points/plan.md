@@ -56,7 +56,8 @@ size defaults. Close each one, test it against values recorded from seaborn
   edge width), re-run it in the throwaway environment its docstring names,
   and commit the fixture. seaborn stays out of the dev group.
 - One shared label helper in `_common.py`, used by the categorical helpers,
-  `scatterplot`, `regplot`, `histplot`, and `lineplot` (in `core.py`), so the rule lives in
+  `scatterplot`, `histplot`, and `enhanced_lineplot` (in `core.py`); `regplot` keeps
+  its unconditional labels, which the recording shows seaborn's `regplot` sets, so the rule lives in
   one place.
 - Each gap gets tests on the drawn artists against the recorded values.
 
