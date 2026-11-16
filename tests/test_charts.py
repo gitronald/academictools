@@ -26,7 +26,7 @@ from tools.plots.charts import (
     scatterplot,
     swarmplot,
 )
-from tools.plots.estimate import bootstrap, estimate_interval
+from tools.plots.estimate import bootstrap, estimate_interval, wilson_interval
 from tools.plots.palettes import (
     TICKS_STYLE,
     WHITEGRID_STYLE,
@@ -248,13 +248,43 @@ class TestEstimate:
         with pytest.raises(ValueError, match="unknown estimator"):
             estimate_interval(np.arange(3.0), estimator="nope")
 
-    def test_se_sd_require_mean(self):
-        x = np.arange(5.0)
-        for spec in ("sd", ("se", 2)):
-            with pytest.raises(ValueError, match="spreads around the mean"):
+    def test_se_sd_wilson_require_mean(self):
+        x = np.array([0.0, 1.0, 1.0, 0.0, 1.0])
+        for spec in ("sd", ("se", 2), "wilson"):
+            with pytest.raises(ValueError, match="describes the mean"):
                 estimate_interval(x, "median", errorbar=spec)
         est, _, _ = estimate_interval(x, np.mean, errorbar="sd")
-        assert est == 2.0
+        assert est == 0.6
+
+    def test_wilson_matches_the_closed_form(self):
+        # 0 of 13: the upper bound is z^2 / (n + z^2) and the lower bound is 0.
+        z = 1.959963984540054
+        est, low, high = estimate_interval(np.zeros(13), errorbar="wilson")
+        assert (est, low, high) == pytest.approx((0.0, 0.0, z**2 / (13 + z**2)))
+        # 1 of 2 stays inside [0, 1], where ("se", 1.96) does not.
+        _, low, high = estimate_interval(np.array([0.0, 1.0]), errorbar="wilson")
+        assert 0 < low < 0.5 < high < 1
+        assert low + high == pytest.approx(1.0)
+        _, se_low, _ = estimate_interval(np.array([0.0, 1.0]), errorbar=("se", 1.96))
+        assert se_low < 0
+
+    def test_wilson_level_and_booleans(self):
+        x = np.array([True] * 30 + [False] * 70)
+        _, low95, high95 = estimate_interval(x, errorbar=("wilson", 95))
+        _, low80, high80 = estimate_interval(x, errorbar=("wilson", 80))
+        assert low95 < low80 < 0.3 < high80 < high95
+        assert (low95, high95) == pytest.approx(wilson_interval(x.astype(float)))
+        # At large n it agrees with the normal approximation.
+        big = np.random.default_rng(0).random(200_000) < 0.3
+        wil = estimate_interval(big, errorbar="wilson")
+        se = estimate_interval(big, errorbar=("se", 1.959963984540054))
+        assert wil == pytest.approx(se, abs=1e-5)
+
+    def test_wilson_rejects_values_other_than_0_and_1(self):
+        with pytest.raises(ValueError, match="all 0 or 1"):
+            estimate_interval(np.array([0.0, 0.5, 1.0]), errorbar="wilson")
+        with pytest.raises(ValueError, match="at least one value"):
+            wilson_interval(np.array([]))
 
 
 class TestBarAndPointPlots:

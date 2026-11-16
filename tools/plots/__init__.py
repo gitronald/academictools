@@ -31,7 +31,7 @@ from .core import (
     noisy_limits,
     set_fig_text,
 )
-from .estimate import bootstrap, estimate_interval
+from .estimate import bootstrap, estimate_interval, wilson_interval
 from .heatmaps import get_heatmap_data, plot_heatmap
 from .palettes import (
     DEEP,
@@ -98,6 +98,7 @@ __all__ = [
     # Estimates
     "bootstrap",
     "estimate_interval",
+    "wilson_interval",
     # Core
     "enhanced_scatterplot",
     "enhanced_lineplot",
