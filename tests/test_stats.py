@@ -2,8 +2,10 @@ import json
 import math
 from pathlib import Path
 
+import numpy as np
 import polars as pl
 import pytest
+import scipy.stats as st
 
 from tools.stats.nonparametric import (
     _mcnemar,
@@ -125,6 +127,59 @@ class TestSpearmanr:
         df = pl.DataFrame({"x": range(20), "y": range(20)})
         result = spearmanr(df, "x", "y")
         assert result["rho"] == pytest.approx(1.0)
+
+    def test_omit_drops_incomplete_pairs(self):
+        df = pl.DataFrame(
+            {
+                "x": [1.0, float("nan"), 3.0, 4.0, 5.0, 6.0, None],
+                "y": [2.0, 1.0, None, 4.0, 3.0, 6.0, 7.0],
+            }
+        )
+        expected = st.spearmanr([1.0, 4.0, 5.0, 6.0], [2.0, 4.0, 3.0, 6.0])
+        result = spearmanr(df, "x", "y")
+        assert result["rho"] == pytest.approx(expected[0])
+        assert result["p"] == pytest.approx(expected[1])
+
+    def test_omit_matches_scipy_masked_path(self):
+        rng = np.random.default_rng(0)
+        x = np.round(rng.random(500), 1)
+        y = np.round(x + rng.normal(0, 0.3, 500), 1)
+        x[rng.random(500) < 0.2] = np.nan
+        df = pl.DataFrame({"x": x, "y": y}).with_columns(pl.col("x").fill_nan(None))
+        expected = st.spearmanr(x, y, nan_policy="omit")
+        result = spearmanr(df, "x", "y")
+        assert result["rho"] == pytest.approx(expected[0], abs=1e-12)
+        assert result["p"] == pytest.approx(expected[1], abs=1e-12)
+
+    def test_omit_integer_column_with_nulls(self):
+        df = pl.DataFrame({"x": [1, 2, None, 4, 5], "y": [2, 1, 3, 5, 4]})
+        result = spearmanr(df, "x", "y")
+        assert result["rho"] == pytest.approx(0.6)
+
+    def test_omit_constant_column_is_nan(self):
+        df = pl.DataFrame({"x": [1.0, 1.0, 1.0, None], "y": [1.0, 2.0, 3.0, 4.0]})
+        with pytest.warns(st.ConstantInputWarning):
+            result = spearmanr(df, "x", "y")
+        assert np.isnan(result["rho"])
+        assert np.isnan(result["p"])
+
+    def test_omit_all_missing_is_nan(self):
+        df = pl.DataFrame(
+            {"x": [1.0, 2.0, 3.0], "y": [None, None, None]},
+            schema={"x": pl.Float64, "y": pl.Float64},
+        )
+        result = spearmanr(df, "x", "y")
+        assert np.isnan(result["rho"])
+
+    def test_propagate_keeps_missing(self):
+        df = pl.DataFrame({"x": [1.0, 2.0, 3.0, None], "y": [1.0, 2.0, 3.0, 4.0]})
+        result = spearmanr(df, "x", "y", nan_policy="propagate")
+        assert np.isnan(result["rho"])
+
+    def test_raise_on_missing(self):
+        df = pl.DataFrame({"x": [1.0, 2.0, 3.0, None], "y": [1.0, 2.0, 3.0, 4.0]})
+        with pytest.raises(ValueError):
+            spearmanr(df, "x", "y", nan_policy="raise")
 
 
 class TestNonparametricSigTest:

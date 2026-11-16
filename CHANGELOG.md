@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-11-16
+
+### Fixed
+
+- `spearmanr` with `nan_policy="omit"` drops every row where either column is missing (a null or NaN) and ranks the rest with scipy's regular path, instead of scipy's masked-array path, which took minutes on large columns with many tied values. Results are unchanged, except that a constant column with missing values returns `nan` rather than `(0.0, 1.0)`, as a constant column without them already did.
+
 ## [0.9.2] - 2026-11-15
 
 ### Changed
