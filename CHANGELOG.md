@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- `set_theme(style)`, which sets the rcParams `seaborn.set_theme` does: the `ticks` or `whitegrid` axes style, the "notebook" context (`NOTEBOOK_CONTEXT`), and the "deep" color cycle (`DEEP`).
+- `"dark:<color>"` and `"light:<color>"` palette names, with `dark_palette`, `light_palette`, and `blend_palette`; `desaturate`.
+- `barplot`, `boxplot`, and `boxenplot` take `saturation` (default 0.75, as seaborn draws fills) and `gap`.
+- `boxplot(fill=False)` draws unfilled boxes with every line in the box color.
+- `boxenplot` takes `box_kws`, `line_kws`, and `flier_kws` for the boxes, the median line, and the outliers.
+
+### Changed
+
+- With `hue`, the categorical helpers, `scatterplot`, and `histplot` add one labeled artist per level to the axes and build the legend from them, so `ax.get_legend_handles_labels()` and `add_legend` find the levels.
+- `dodge` and `legend` default to `"auto"` on the categorical helpers: hue levels are dodged only when they share a category, and the legend is left out when `hue` is the category column.
+- `boxplot` and `boxenplot` default to `linecolor="auto"`, a gray darker than the darkest fill.
+- `scatterplot` gives filled markers seaborn's white edge, `0.08 * sqrt(s)` points wide, and with `hue` draws all points as one collection in row order.
+- `histplot` draws hue layers with the first level on top, applies `alpha` to the fill only, and thins bar edges for narrow bins.
+- `swarmplot` draws its points at `zorder=3`, above bars and error bars.
+
 ## [0.9.0] - 2026-11-15
 
 ### Added
