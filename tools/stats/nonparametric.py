@@ -119,16 +119,24 @@ def spearmanr(
         data: pl.DataFrame containing the data
         metric1: First column name
         metric2: Second column name
-        nan_policy: How to handle NaN values ('raise', 'omit', 'propagate')
+        nan_policy: How to handle missing values, polars nulls or NaN:
+            'omit' drops every row where either value is missing and ranks
+            the rest; 'raise' and 'propagate' pass them to scipy as NaN
 
     Returns:
         dict with 'rho' and 'p' keys
     """
-    rho, p = st.spearmanr(
-        data.get_column(metric1).to_numpy(),
-        data.get_column(metric2).to_numpy(),
-        nan_policy=nan_policy,
-    )
+    x = data.get_column(metric1).to_numpy()
+    y = data.get_column(metric2).to_numpy()
+    if nan_policy == "omit":
+        # scipy's own 'omit' ranks through masked arrays, whose tie handling
+        # scans the whole array once per tied value: minutes on a million
+        # heavily tied rows. Dropping incomplete pairs first hands scipy's
+        # regular path the same rows.
+        keep = ~(np.isnan(x) | np.isnan(y))
+        x, y = x[keep], y[keep]
+        nan_policy = "propagate"
+    rho, p = st.spearmanr(x, y, nan_policy=nan_policy)
     return {"rho": rho, "p": p}
 
 
